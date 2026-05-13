@@ -2090,9 +2090,12 @@ function switchGroceryTab(tab) {
 
 function renderGroceries() {
   const data = db();
-  const pStart = currentPeriodStart();
-  const pKey = periodKey(pStart);
-  const pEnd = new Date(pStart); pEnd.setDate(pStart.getDate() + 13);
+  const isMonthly = data.periodMode === 'monthly';
+  const pStart = isMonthly ? currentMonthStart() : currentPeriodStart();
+  const pKey = isMonthly ? monthPeriodKey(pStart) : periodKey(pStart);
+  const pEnd = isMonthly
+    ? new Date(pStart.getFullYear(), pStart.getMonth()+1, 0)
+    : (() => { const e = new Date(pStart); e.setDate(pStart.getDate()+13); return e; })();
   const today = new Date(); today.setHours(0,0,0,0);
   const daysLeft = Math.max(0, Math.round((pEnd - today) / 86400000) + 1);
 
@@ -2179,8 +2182,9 @@ function renderGroceries() {
 
 function renderGroceryTabContent() {
   const data = db();
-  const pStart = currentPeriodStart();
-  const pKey = periodKey(pStart);
+  const isMonthly = data.periodMode === 'monthly';
+  const pStart = isMonthly ? currentMonthStart() : currentPeriodStart();
+  const pKey = isMonthly ? monthPeriodKey(pStart) : periodKey(pStart);
   const content = document.getElementById('grocery-tab-content');
   const gLogs = data.groceryLogs[pKey] || { w1: [], w2: [] };
 
