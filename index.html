@@ -434,7 +434,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
   </nav>
 
   <!-- FAB -->
-  <button class="fab" onclick="openAddTxn()" aria-label="Add transaction">
+  <button class="fab" onclick="fabAction()" aria-label="Add">
     <i class="ti ti-plus"></i>
   </button>
 
@@ -4159,6 +4159,14 @@ function openFirstRunSettings() {
              names: [...(data.assignees||['',''])], budgets: {} };
   (data.categories||DEFAULT_CATEGORIES).forEach(c => { if(c.budget) frData.budgets[c.id] = c.budget; });
   showFirstRun();
+}
+
+function fabAction() {
+  if (currentView === 'todo') {
+    openAddTask();
+  } else {
+    openAddTxn();
+  }
 }
 
 function refreshCurrentView() {
