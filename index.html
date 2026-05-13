@@ -3953,7 +3953,11 @@ function renderFrStep() {
         <div style="font-size:15px;font-weight:600;color:#1a1a1a;">Calendar monthly</div>
         <div style="font-size:12px;color:#8a8a8a;margin-top:3px;">24 pay periods/year — semi-monthly</div>
       </div>
-      <button onclick="frNext()" style="width:100%;background:#1a2e1b;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;">Continue</button>`;
+      <button onclick="frNext()" style="width:100%;background:#1a2e1b;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;">Continue</button>
+      <div style="text-align:center;margin-top:16px;">
+        <div style="font-size:12px;color:#8a8a8a;margin-bottom:8px;">Already set up by your partner?</div>
+        <button onclick="frSkipToConnect()" style="background:none;border:none;color:#3d6f94;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;text-decoration:underline;">Skip — connect to existing setup</button>
+      </div>`;
     frSelectMode(frData.periodMode);
   }
   else if (frStep === 2) {
@@ -4101,6 +4105,37 @@ function frCopyGistId() {
 }
 
 function frComplete() {
+  const data = db();
+  data.firstRunComplete = true;
+  save(data);
+  hideFirstRun();
+  refreshCurrentView();
+  renderDashboard();
+}
+
+function frSkipToConnect() {
+  const el = document.getElementById('fr-steps');
+  const progress = `<div style="display:flex;gap:4px;margin-bottom:24px;">
+    ${[1,2].map(i => `<div style="flex:1;height:4px;border-radius:2px;background:${i===1?'#1a2e1b':'#ddd'};"></div>`).join('')}
+  </div>`;
+
+  el.innerHTML = progress + `
+    <div style="text-align:center;margin-bottom:24px;">
+      <i class="ti ti-refresh" style="font-size:40px;color:#1a2e1b;"></i>
+      <div style="font-size:22px;font-weight:700;color:#1a2e1b;margin-top:10px;">Connect to existing setup</div>
+      <div style="font-size:13px;color:#8a8a8a;margin-top:6px;line-height:1.5;">Your partner has already set up Base Camp. You just need your shared GitHub token and Gist ID to connect.</div>
+    </div>
+    <div style="background:#F9EDE8;border-radius:12px;padding:14px 16px;margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:600;color:#8a4a30;margin-bottom:6px;">You'll need from your partner:</div>
+      <div style="font-size:13px;color:#8a4a30;margin-bottom:4px;">→  Your shared GitHub token (starts with ghp_)</div>
+      <div style="font-size:13px;color:#8a4a30;">→  Your Gist ID (shown on their setup screen)</div>
+    </div>
+    <div style="font-size:12px;color:#8a8a8a;margin-bottom:8px;">Enter both of these in Settings → Cloud Sync → Setup after the app opens.</div>
+    <button onclick="frSkipComplete()" style="width:100%;background:#1a2e1b;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:10px;">Open Base Camp</button>
+    <button onclick="frStep=1;renderFrStep();" style="width:100%;background:transparent;border:1px solid #ddd;border-radius:12px;padding:12px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;color:#1a1a1a;">Back</button>`;
+}
+
+function frSkipComplete() {
   const data = db();
   data.firstRunComplete = true;
   save(data);
