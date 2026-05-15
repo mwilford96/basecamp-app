@@ -1691,9 +1691,13 @@ function getSpendForPeriod(data, pKey) {
 }
 
 function getUnpaidTotal(data) {
-  const txns = data.transactions.filter(t => !t.paid);
-  const fixed = data.fixedExpenses.filter(f => !f.paid);
-  const total = txns.reduce((s,t) => s+t.amount, 0) + fixed.reduce((s,f) => s+f.amount, 0);
+  const isMonthly = data.periodMode === 'monthly';
+  const pStart = isMonthly ? currentMonthStart() : currentPeriodStart();
+  const pKey = isMonthly ? monthPeriodKey(pStart) : periodKey(pStart);
+  // Only count unpaid transactions from the current period
+  const txns = data.transactions.filter(t => !t.paid && t.periodKey === pKey);
+  const fixed = data.fixedExpenses.filter(f => !f.paid && f.periodKey === pKey);
+  const total = txns.reduce((s,t) => s+(t.tbd?0:t.amount), 0) + fixed.reduce((s,f) => s+f.amount, 0);
   return { total, count: txns.length + fixed.length };
 }
 
