@@ -311,10 +311,10 @@ select.form-input{appearance:none;-webkit-appearance:none;}
       </div>
 
       <!-- Period notes -->
-       <div style="background:var(--surface);border-radius:12px;border:0.5px solid var(--border);padding:12px 14px;margin-bottom:10px;">
+       <div style="background:var(--surface);border-radius:12px;border:0.5px solid var(--border);border-left:3px solid var(--food);padding:12px 14px;margin-bottom:10px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-          <i class="ti ti-notes" style="font-size:14px;color:var(--muted);"></i>
-          <span style="font-size:12px;font-weight:600;color:var(--muted);">Period Notes</span>
+          <i class="ti ti-notes" style="font-size:14px;color:var(--food-d);"></i>
+          <span style="font-size:12px;font-weight:600;color:var(--food-d);">Period Notes</span>
         </div>
         <textarea id="db-period-notes" class="week-notes" rows="3"
           placeholder="Notes for this period — big purchases, reminders, anything worth tracking..."
@@ -1800,7 +1800,7 @@ function renderDashboard() {
       : warn
       ? `${fmt(b - s)} left of ${fmt(b)}`
       : `of ${fmt(b)}`;
-    return `<div style="background:${cat.light};border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+    return `<div onclick="switchView('budget');setBudgetSubview('0');" style="cursor:pointer;background:${cat.light};border-radius:12px;padding:12px 14px;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
         <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${cat.dark};">${cat.label}</span>
         <div style="display:flex;align-items:center;gap:6px;">${badge}<span style="font-size:11px;color:${cat.dark};">${subText}</span></div>
@@ -1965,7 +1965,10 @@ function renderBudget() {
         </div>`;
 
     if (catTxns.length > 0) {
-      html += catTxns.map(t => txnRow(t, data)).join('');
+      html += catTxns.map(t => {
+          const isFixed = !!t._isFixed;
+          return txnRow(t, data, !isFixed);
+        }).join('');
     } else {
       html += `<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px 0;">No entries yet</div>`;
     }
@@ -2154,14 +2157,21 @@ function renderGroceries() {
   const pMidDate = new Date(pStart); pMidDate.setDate(pStart.getDate() + 7);
 
   // All food transactions for this period, split by week using transaction date
-  const allFoodTxns = data.transactions.filter(t => t.cat === 'food' && t.periodKey === pKey);
+  const allFoodTxns = data.transactions.filter(t => (t.cat === 'food' || t.cat === 'meals_out') && t.periodKey === pKey);
   const w1Txns = allFoodTxns.filter(t => new Date(t.date + 'T12:00:00') < pMidDate);
   const w2Txns = allFoodTxns.filter(t => new Date(t.date + 'T12:00:00') >= pMidDate);
   const w1Spent = w1Txns.reduce((s, t) => s + t.amount, 0);
   const w2Spent = w2Txns.reduce((s, t) => s + t.amount, 0);
 
   // Meals out and household from groceryLogs (these also create food txns, but track separately for display)
-  const mealsSpent = (gLogs.mealsOut || []).reduce((s, l) => s + l.amount, 0);
+  // mealsSpent from actual transactions (more reliable than gLogs)
+  const mealsTxns = data.transactions.filter(t => t.cat === 'meals_out' && t.periodKey === pKey);
+  const mealsSpent = mealsTxns.reduce((s,t) => s+(t.tbd?0:t.amount),0) +
+    (gLogs.mealsOut||[]).reduce((s,l) => {
+      // Only count gLog entries that DON'T have a matching transaction (old data)
+      const hasMatch = data.transactions.some(t => t.amount === l.amount && t.date === l.date && t.cat === 'food');
+      return hasMatch ? s : s + l.amount;
+    }, 0);
   const hhSpent = (gLogs.household || []).reduce((s, l) => s + l.amount, 0);
 
   // Food fixed expenses (subscriptions tagged as food)
@@ -2176,7 +2186,7 @@ function renderGroceries() {
   // Week 2 budget tightens based on what was actually spent in week 1
   const w2Budget = Math.max(0, foodBudget - w1Spent);
   const totalFoodSpent = w1Spent + w2Spent;
-  const totalSpent = totalFoodSpent + hhSpent + foodFixedSpent;
+  const totalSpent = totalFoodSpent + foodFixedSpent;
   const totalRemaining = budget - totalSpent;
 
   // Active week based on today vs midpoint
@@ -2199,7 +2209,7 @@ function renderGroceries() {
       const activeWkIdx = getActiveWeekIndex();
       return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
         ${weeks.map((w,i) => {
-          const txnsInWk = data.transactions.filter(t => t.periodKey === pKey && t.date >= w.startStr && t.date <= w.endStr);
+          const txnsInWk = data.transactions.filter(t => t.periodKey === pKey && t.date >= w.startStr && t.date <= w.endStr && (t.cat === 'food' || t.cat === 'meals_out'));
           const wkSpent = txnsInWk.reduce((s,t) => s+(t.tbd?0:t.amount),0);
           const isActive = i === activeWkIdx;
           return `<div class="week-box" style="${isActive?'border:1.5px solid var(--food);':''}">
@@ -2662,8 +2672,11 @@ function saveMealsOut() {
   const week = document.getElementById('mo-week').value;
   if (isNaN(amount) || !date) { alert('Please fill in amount and date.'); return; }
 
-  const pStart = getPeriodStart(new Date(date + 'T12:00:00'));
-  const pKey = periodKey(pStart);
+  const isMonthlyMo = data.periodMode === 'monthly';
+  const pStart = isMonthlyMo
+    ? new Date(new Date(date + 'T12:00:00').getFullYear(), new Date(date + 'T12:00:00').getMonth(), 1)
+    : getPeriodStart(new Date(date + 'T12:00:00'));
+  const pKey = isMonthlyMo ? monthPeriodKey(pStart) : periodKey(pStart);
   if (!data.groceryLogs[pKey]) data.groceryLogs[pKey] = { w1: [], w2: [], mealsOut: [], household: [] };
   if (!data.groceryLogs[pKey].mealsOut) data.groceryLogs[pKey].mealsOut = [];
   data.groceryLogs[pKey].mealsOut.push({ where, amount, date, week });
