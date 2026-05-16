@@ -269,7 +269,10 @@ select.form-input{appearance:none;-webkit-appearance:none;}
         <div style="flex:1;">
           <div class="page-title">🌲 Base Camp 🏕️</div>
           <div style="font-size:13px;font-weight:500;color:var(--muted);margin-top:1px;" id="home-names">Chris + Maddie</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;" id="db-period-label">Loading...</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+            <div style="font-size:11px;color:var(--muted);" id="db-period-label">Loading...</div>
+            <div id="db-days-left" style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--light);color:var(--muted);display:none;"></div>
+          </div>
           <div id="sync-indicator" style="font-size:11px;font-weight:600;margin-top:2px;min-height:14px;"></div>
         </div>
         <button class="period-chip active" onclick="openAddTxn()">+ Add</button>
@@ -308,9 +311,14 @@ select.form-input{appearance:none;-webkit-appearance:none;}
       </div>
 
       <!-- Period notes -->
-      <div class="card">
-        <div class="card-title">Period Notes</div>
-        <textarea id="db-period-notes" class="week-notes" rows="2" placeholder="e.g. Bought winter tires this period..." style="width:100%;" onchange="savePeriodNotes(this.value)"></textarea>
+       <div style="background:var(--surface);border-radius:12px;border:0.5px solid var(--border);padding:12px 14px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <i class="ti ti-notes" style="font-size:14px;color:var(--muted);"></i>
+          <span style="font-size:12px;font-weight:600;color:var(--muted);">Period Notes</span>
+        </div>
+        <textarea id="db-period-notes" class="week-notes" rows="3"
+          placeholder="Notes for this period — big purchases, reminders, anything worth tracking..."
+          style="width:100%;font-size:13px;" onchange="savePeriodNotes(this.value)"></textarea>
       </div>
 
       <!-- Recent transactions -->
@@ -582,8 +590,10 @@ select.form-input{appearance:none;-webkit-appearance:none;}
         <div class="form-field">
           <label class="form-label">Category</label>
           <select class="form-input" id="recipe-category">
-            <option>Chicken</option><option>Beef</option><option>Pasta</option>
-            <option>Fish</option><option>Vegetarian</option><option>Soup</option><option>Other</option>
+            <option value="Dinner">Dinner</option>
+            <option value="Soup">Soup</option>
+            <option value="Appetizers">Appetizers</option>
+            <option value="Desserts">Desserts</option>
           </select>
         </div>
         <div class="form-field">
@@ -736,21 +746,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     </div>
   </div>
 
-  <!-- AI RECIPE PARSER MODAL -->
-  <div class="modal-overlay" id="modal-ai-recipe" onclick="closeModalOutside(event,'modal-ai-recipe')">
-    <div class="modal">
-      <div class="modal-handle"></div>
-      <div class="modal-title">Paste a Recipe</div>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.5;">Paste any recipe text below — from a website, screenshot, or your own notes. AI will parse it into structured ingredients and steps.</p>
-      <div class="form-field">
-        <label class="form-label">Recipe Text</label>
-        <textarea class="form-input" id="ai-recipe-text" rows="10" placeholder="Paste recipe here..." style="resize:none;font-size:13px;"></textarea>
-      </div>
-      <div id="ai-recipe-status" style="font-size:12px;color:var(--muted);min-height:18px;margin-bottom:8px;"></div>
-      <button class="btn btn-primary" id="ai-recipe-btn" onclick="parseAIRecipe()">Parse with AI</button>
-      <button class="btn btn-secondary" onclick="closeModal('modal-ai-recipe')">Cancel</button>
-    </div>
-  </div>
+
 
   <!-- ADD RECURRING TASK MODAL -->
   <div class="modal-overlay" id="modal-recurring-task" onclick="closeModalOutside(event,'modal-recurring-task')">
@@ -1363,6 +1359,7 @@ let budgetSubview = '0';
 let groceryTab = 'plan';
 
 function switchView(v) {
+  localStorage.setItem('bc_last_view', v);
   document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('view-' + v).classList.add('active');
@@ -1439,17 +1436,24 @@ function toggleSavFlag() {
 // ─── PERIOD OPTIONS ───────────────────────────────────────────────
 function populatePeriodSelect(selectId) {
   const sel = document.getElementById(selectId);
-  const today = new Date();
-  const current = currentPeriodStart();
+  const data = db();
+  const isMonthly = data.periodMode === 'monthly';
   const periods = [];
-  for (let i = -6; i <= 2; i++) {
-    const s = new Date(current);
-    s.setDate(current.getDate() + i * PERIOD_DAYS);
-    periods.push(s);
+  if (isMonthly) {
+    for (let i = -6; i <= 2; i++) {
+      periods.push(monthStart(i));
+    }
+  } else {
+    const current = currentPeriodStart();
+    for (let i = -6; i <= 2; i++) {
+      const s = new Date(current);
+      s.setDate(current.getDate() + i * PERIOD_DAYS);
+      periods.push(s);
+    }
   }
   sel.innerHTML = periods.reverse().map(s => {
-    const k = periodKey(s);
-    const label = periodLabel(s);
+    const k = isMonthly ? monthPeriodKey(s) : periodKey(s);
+    const label = isMonthly ? monthLabel(s) : periodLabel(s);
     const isCurrent = k === periodKey(current);
     return `<option value="${k}" ${isCurrent ? 'selected' : ''}>${label}${isCurrent ? ' (current)' : ''}</option>`;
   }).join('');
@@ -1719,6 +1723,24 @@ function renderDashboard() {
     document.getElementById('db-period-label').textContent = monthLabel(new Date());
   } else {
     document.getElementById('db-period-label').textContent = periodLabel(pStart);
+  }
+  // Days left chip
+  const daysLeftEl = document.getElementById('db-days-left');
+  if (daysLeftEl) {
+    const pEnd = isMonthly
+      ? new Date(new Date().getFullYear(), new Date().getMonth()+1, 0)
+      : (() => { const e = new Date(pStart); e.setDate(pStart.getDate()+13); return e; })();
+    const todayMid = new Date(); todayMid.setHours(0,0,0,0);
+    const dLeft = Math.max(0, Math.round((pEnd - todayMid) / 86400000) + 1);
+    daysLeftEl.style.display = 'inline-block';
+    daysLeftEl.textContent = dLeft + ' day' + (dLeft !== 1 ? 's' : '') + ' left';
+    if (dLeft <= 3) {
+      daysLeftEl.style.background = '#FAEEDA';
+      daysLeftEl.style.color = '#633806';
+    } else {
+      daysLeftEl.style.background = 'var(--light)';
+      daysLeftEl.style.color = 'var(--muted)';
+    }
   }
   const namesEl = document.getElementById('home-names');
   if (namesEl) {
@@ -2087,10 +2109,31 @@ function toggleEndedSubs(btn) {
 }
 
 // ─── GROCERIES ────────────────────────────────────────────────────
+const GROC_TAB_COLORS = {
+  plan:    { color:'#5a7a4e', bg:'#EFF5ED' },
+  recipes: { color:'#7a5a2e', bg:'#F7EDE0' },
+  staples: { color:'#6a4e2e', bg:'#F7F1EA' },
+  list:    { color:'#27500A', bg:'#EAF3DE' },
+};
+
 function switchGroceryTab(tab) {
   groceryTab = tab;
-  document.querySelectorAll('[id^="gtab-"]').forEach(b => b.classList.remove('active'));
-  document.getElementById('gtab-' + tab).classList.add('active');
+  document.querySelectorAll('[id^="gtab-"]').forEach(b => {
+    b.classList.remove('active');
+    b.style.background = '';
+    b.style.color = '';
+    b.style.fontWeight = '';
+  });
+  const activeBtn = document.getElementById('gtab-' + tab);
+  if (activeBtn) {
+    activeBtn.classList.add('active');
+    const col = GROC_TAB_COLORS[tab];
+    if (col) {
+      activeBtn.style.background = col.bg;
+      activeBtn.style.color = col.color;
+      activeBtn.style.fontWeight = '700';
+    }
+  }
   renderGroceryTabContent();
 }
 
@@ -2204,7 +2247,7 @@ function renderGroceryTabContent() {
     if (isMonthlyPlan) {
       const weeks = getMonthWeeks(pStart);
       const activeWkIdx = getActiveWeekIndex();
-      html += `<div class="card"><div class="card-title">Food Notes</div>
+      html += `<div class="card"><div class="card-title" style="color:#5a7a4e;">Food Notes</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           ${weeks.slice(0,2).map((w,i) => {
             const key = 'w'+(i+1)+'Notes';
@@ -2247,7 +2290,7 @@ function renderGroceryTabContent() {
     }
 
     // ── Meals out ──
-    html += `<div class="card"><div class="section-head"><div class="section-head-title">Meals Out</div><button class="link-btn" onclick="openModal('modal-meals-out')">+ Add</button></div>`;
+    html += `<div class="card"><div class="section-head"><div class="section-head-title" style="color:#8a4a30;">Meals Out</div><button class="link-btn" style="color:#C17B5E;" onclick="openModal('modal-meals-out')">+ Add</button></div>`;
     if (mealsOut.length === 0) {
       html += `<div style="font-size:12px;color:var(--muted);">None logged</div>`;
     } else {
@@ -2260,7 +2303,7 @@ function renderGroceryTabContent() {
     // ── Food subscriptions (fixed expenses tagged as food) ──
     const foodFixed = data.fixedExpenses.filter(f => f.periodKey === pKey && f.cat === 'food');
     if (foodFixed.length > 0) {
-      html += `<div class="card"><div class="section-head"><div class="section-head-title">Subscriptions</div><button class="link-btn" onclick="switchView('budget');setBudgetSubview('scheduled');">Manage</button></div>`;
+      html += `<div class="card" style="border-top:3px solid #C4A882;"><div class="section-head"><div class="section-head-title" style="color:#8a6e4a;">Subscriptions</div><div style="display:flex;gap:10px;"><button class="link-btn" style="color:#C4A882;" onclick="openAddFixedForCat('food')">+ Add</button><button class="link-btn" onclick="switchView('budget');setBudgetSubview('scheduled');">Manage</button></div></div>`;
       foodFixed.forEach(f => {
         const renewDisplay = f.renewalDate || f.startDate || '';
         html += `<div class="txn-row" onclick="openEditFixed('${f.id}')" style="cursor:pointer;"><div class="txn-dot" style="background:var(--fix-l);"><i class="ti ti-repeat" style="color:var(--fix);font-size:13px;"></i></div><div class="txn-info"><div class="txn-name">${f.name}</div><div class="txn-meta">Next: ${renewDisplay} · ${f.freq}</div></div><div class="txn-right"><div class="txn-amount" style="color:var(--fix-d);">${fmt(f.amount)}</div></div></div>`;
@@ -2269,7 +2312,7 @@ function renderGroceryTabContent() {
     }
 
     // ── Selected recipes ──
-    html += `<div class="card"><div class="section-head"><div class="section-head-title">This Week's Recipes</div><button class="link-btn" onclick="switchGroceryTab('recipes')">Pick</button></div>`;
+    html += `<div class="card" style="border-top:3px solid #C4956A;"><div class="section-head"><div class="section-head-title" style="color:#7a5a2e;">This Week's Recipes</div><button class="link-btn" onclick="switchGroceryTab('recipes')">Pick</button></div>`;
     const selected = (plan.selectedRecipes || []).map(id => data.recipes.find(r => r.id === id)).filter(Boolean);
     if (selected.length === 0) {
       html += `<div style="font-size:12px;color:var(--muted);">No recipes selected</div>`;
@@ -2601,61 +2644,6 @@ function copyList() {
   navigator.clipboard.writeText(all).then(() => toast('List copied!'));
 }
 
-async function parseAIRecipe() {
-  const text = document.getElementById('ai-recipe-text').value.trim();
-  if (!text) { toast('Please paste a recipe first.'); return; }
-  const btn = document.getElementById('ai-recipe-btn');
-  const status = document.getElementById('ai-recipe-status');
-  btn.disabled = true;
-  btn.textContent = 'Parsing...';
-  status.textContent = 'Sending to AI...';
-  const apiKey = getAnthropicKey();
-  if (!apiKey) {
-    status.textContent = 'No API key set. Go to Settings → AI Features to set up.';
-    btn.disabled = false; btn.textContent = 'Parse with AI';
-    return;
-  }
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: 'Parse this recipe into JSON only. Return ONLY a JSON object with no markdown, no backticks, no explanation. Format: {"name":"","category":"","servings":4,"ingredients":[{"name":"","qty":"","unit":"","brand":"","purchaseSize":"","price":0}],"steps":[""],"notes":""}. Recipe:\n\n' + text
-        }]
-      })
-    });
-    const json = await res.json();
-    const raw = json.content?.[0]?.text || '';
-    let parsed;
-    try {
-      parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
-    } catch(e) {
-      status.textContent = 'Could not parse AI response. Try again.';
-      btn.disabled = false; btn.textContent = 'Parse with AI';
-      return;
-    }
-    status.textContent = 'Done! Opening recipe editor...';
-    setTimeout(() => {
-      closeModal('modal-ai-recipe');
-      document.getElementById('ai-recipe-text').value = '';
-      openRecipeModal(parsed);
-      btn.disabled = false; btn.textContent = 'Parse with AI';
-      status.textContent = '';
-    }, 800);
-  } catch(e) {
-    status.textContent = 'Error: ' + e.message;
-    btn.disabled = false; btn.textContent = 'Parse with AI';
-  }
-}
 
 // ─── TOAST ────────────────────────────────────────────────────────
 function toast(msg) {
@@ -3100,24 +3088,6 @@ function renderSettings() {
       <span>Manage recurring payments</span>
       <button class="link-btn" onclick="switchView('budget');setBudgetSubview('scheduled');">Manage</button>
     </div>
-  </div>`;
-
-  // ── AI Features ──
-  const hasAiKey = !!(data.anthropicKey);
-  html += `<div class="card settings-section">
-    <div class="settings-label">AI Features <span style="font-size:10px;font-weight:400;color:var(--muted);">Optional</span></div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5;">
-      AI recipe parsing automatically extracts ingredients and instructions from pasted text.
-      Requires a free Anthropic account. Small costs may apply depending on usage — new accounts receive free credits.
-    </div>
-    <div class="settings-row">
-      <div>
-        <div style="font-size:14px;font-weight:500;">API Key</div>
-        <div style="font-size:11px;color:var(--muted);">${hasAiKey ? '✓ Connected' : 'Not set up'}</div>
-      </div>
-      <button class="link-btn" onclick="openAiSetup()">${hasAiKey ? 'Update' : 'Setup'}</button>
-    </div>
-    ${hasAiKey ? `<div class="settings-row"><span style="color:var(--danger);">Remove API key</span><button class="link-btn" style="color:var(--danger);" onclick="removeAiKey()">Remove</button></div>` : ''}
   </div>`;
 
   // ── Period Mode ──
@@ -4458,8 +4428,9 @@ async function checkForUpdate() {
   if (!initData.firstRunComplete) {
     showFirstRun();
   } else {
-    // Render immediately from local data so screen is never blank
-    renderDashboard();
+    // Restore last viewed page
+    const lastView = localStorage.getItem('bc_last_view') || 'dashboard';
+    switchView(lastView);
   }
 
   // Then try to pull latest from cloud and re-render if we got data
