@@ -390,7 +390,6 @@ select.form-input{appearance:none;-webkit-appearance:none;}
         <div class="toggle" id="todo-alert-toggle" onclick="toggleTodoAlert()"></div>
       </div>
 
-      <div id="todo-debug" style="font-size:11px;color:var(--danger);padding:6px 0;min-height:12px;"></div>
       <div id="todo-content"></div>
     </div>
 
@@ -873,38 +872,6 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     </div>
   </div>
 
-  <!-- AI SETUP MODAL -->
-  <div class="modal-overlay" id="modal-ai-setup" onclick="closeModalOutside(event,'modal-ai-setup')">
-    <div class="modal">
-      <div class="modal-handle"></div>
-      <div class="modal-title">AI Recipe Parsing Setup</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
-        This feature uses Anthropic's AI to extract ingredients and steps from any recipe you paste. Setup takes about 2 minutes.
-      </div>
-      <div style="background:var(--light);border-radius:10px;padding:12px 14px;margin-bottom:16px;">
-        <div style="font-size:12px;font-weight:700;color:#1a2e1b;margin-bottom:8px;">How to get your API key:</div>
-        <div style="font-size:12px;color:var(--muted);line-height:1.8;">
-          1. Go to <span style="font-weight:600;color:#1a2e1b;">console.anthropic.com</span><br>
-          2. Create a free account<br>
-          3. Go to Settings → API Keys<br>
-          4. Click Create Key — name it anything<br>
-          5. Copy the key (starts with sk-ant-)<br>
-          6. Paste it below
-        </div>
-      </div>
-      <div style="background:#F9EDE8;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
-        <div style="font-size:11px;color:#8a4a30;line-height:1.5;">
-          ⚠ New accounts receive free credits. Small costs may apply after credits are used. This is billed to your own Anthropic account.
-        </div>
-      </div>
-      <div class="form-field">
-        <label class="form-label">Anthropic API Key</label>
-        <input class="form-input" id="ai-key-input" type="password" placeholder="sk-ant-...">
-      </div>
-      <button class="btn btn-primary" onclick="saveAiKey()">Save & Enable</button>
-      <button class="btn btn-secondary" onclick="closeModal('modal-ai-setup')">Cancel</button>
-    </div>
-  </div>
 
   <!-- DONT FORGET MODAL -->
   <div class="modal-overlay" id="modal-dont-forget" onclick="closeModalOutside(event,'modal-dont-forget')">
@@ -1210,8 +1177,7 @@ function db() {
     assignees: stored.assignees || ['Chris', 'Maddie'],
     periodMode: stored.periodMode || 'biweekly',
     paydays: stored.paydays || { type: '26', anchor: '2026-05-01' },
-    firstRunComplete: stored.firstRunComplete !== undefined ? stored.firstRunComplete : true,
-    anthropicKey: stored.anthropicKey || ''
+    firstRunComplete: stored.firstRunComplete !== undefined ? stored.firstRunComplete : true
   };
 }
 
@@ -1238,7 +1204,6 @@ function migrateData(data) {
   if (!data.categories) data.categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
   if (!data.assignees) data.assignees = ['Chris', 'Maddie'];
   if (!data.periodMode) data.periodMode = 'biweekly';
-  if (data.anthropicKey === undefined) data.anthropicKey = '';
   if (!data.paydays) data.paydays = { type: '26', anchor: '2026-05-01' };
   // Existing users: mark first run as complete so setup screen never shows
   if (data.firstRunComplete === undefined) data.firstRunComplete = true;
@@ -2344,7 +2309,7 @@ function renderGroceryTabContent() {
     });
     html += `</div>
       <button class="link-btn" onclick="openRecipeModal(null)" style="display:block;text-align:center;margin-bottom:8px;">+ Add New Recipe</button>
-      ${getAnthropicKey() ? `<button class="link-btn" onclick="openModal('modal-ai-recipe')" style="display:block;text-align:center;margin-bottom:16px;color:var(--fix);">✦ Paste & Parse with AI</button>` : `<div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px;">Enable AI parsing in Settings → AI Features</div>`}`;
+`;
     content.innerHTML = html;
 
   } else if (groceryTab === 'staples') {
@@ -4255,59 +4220,36 @@ function fabAction() {
 function updateFab(view) {
   const fab = document.getElementById('main-fab');
   const label = document.getElementById('fab-label');
-  const icon = document.getElementById('fab-icon');
   if (!fab) return;
   if (view === 'groceries') {
     fab.style.borderRadius = '20px';
     fab.style.padding = '12px 16px';
     fab.style.width = 'auto';
+    fab.style.background = '#C17B5E';
+    fab.style.boxShadow = '0 4px 16px rgba(193,123,94,.4)';
     if (label) { label.style.display = 'inline'; label.textContent = "Don't Forget"; }
+  } else if (view === 'todo') {
+    fab.style.borderRadius = '50%';
+    fab.style.padding = '';
+    fab.style.width = '52px';
+    fab.style.background = 'var(--food)';
+    fab.style.boxShadow = '';
+    if (label) label.style.display = 'none';
   } else {
     fab.style.borderRadius = '50%';
     fab.style.padding = '';
     fab.style.width = '52px';
+    fab.style.background = 'var(--food)';
+    fab.style.boxShadow = '';
     if (label) label.style.display = 'none';
   }
-  if (view === 'history' || view === 'settings') {
-    fab.style.display = 'none';
-  } else {
-    fab.style.display = 'flex';
-  }
+  fab.style.display = (view === 'history' || view === 'settings') ? 'none' : 'flex';
 }
 
 // ─── AI FEATURES ─────────────────────────────────────────────────
-function openAiSetup() {
-  const data = db();
-  document.getElementById('ai-key-input').value = data.anthropicKey || '';
-  openModal('modal-ai-setup');
-}
 
-function saveAiKey() {
-  const key = document.getElementById('ai-key-input').value.trim();
-  if (!key || !key.startsWith('sk-ant-')) {
-    toast('Please enter a valid Anthropic API key (starts with sk-ant-)');
-    return;
-  }
-  const data = db();
-  data.anthropicKey = key;
-  save(data);
-  closeModal('modal-ai-setup');
-  toast('AI recipe parsing enabled!');
-  renderSettings();
-}
 
-function removeAiKey() {
-  if (!confirm('Remove your Anthropic API key? AI recipe parsing will be disabled.')) return;
-  const data = db();
-  data.anthropicKey = '';
-  save(data);
-  toast('API key removed');
-  renderSettings();
-}
 
-function getAnthropicKey() {
-  return db().anthropicKey || '';
-}
 
 function refreshCurrentView() {
   if (currentView === 'dashboard') renderDashboard();
