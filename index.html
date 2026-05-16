@@ -434,8 +434,9 @@ select.form-input{appearance:none;-webkit-appearance:none;}
   </nav>
 
   <!-- FAB -->
-  <button class="fab" onclick="fabAction()" aria-label="Add">
-    <i class="ti ti-plus"></i>
+  <button class="fab" id="main-fab" onclick="fabAction()" aria-label="Add">
+    <i class="ti ti-plus" id="fab-icon"></i>
+    <span id="fab-label" style="display:none;font-size:11px;font-weight:700;margin-left:4px;"></span>
   </button>
 
   <!-- ADD TRANSACTION MODAL -->
@@ -872,6 +873,39 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     </div>
   </div>
 
+  <!-- AI SETUP MODAL -->
+  <div class="modal-overlay" id="modal-ai-setup" onclick="closeModalOutside(event,'modal-ai-setup')">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title">AI Recipe Parsing Setup</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+        This feature uses Anthropic's AI to extract ingredients and steps from any recipe you paste. Setup takes about 2 minutes.
+      </div>
+      <div style="background:var(--light);border-radius:10px;padding:12px 14px;margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;color:#1a2e1b;margin-bottom:8px;">How to get your API key:</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.8;">
+          1. Go to <span style="font-weight:600;color:#1a2e1b;">console.anthropic.com</span><br>
+          2. Create a free account<br>
+          3. Go to Settings → API Keys<br>
+          4. Click Create Key — name it anything<br>
+          5. Copy the key (starts with sk-ant-)<br>
+          6. Paste it below
+        </div>
+      </div>
+      <div style="background:#F9EDE8;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
+        <div style="font-size:11px;color:#8a4a30;line-height:1.5;">
+          ⚠ New accounts receive free credits. Small costs may apply after credits are used. This is billed to your own Anthropic account.
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Anthropic API Key</label>
+        <input class="form-input" id="ai-key-input" type="password" placeholder="sk-ant-...">
+      </div>
+      <button class="btn btn-primary" onclick="saveAiKey()">Save & Enable</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-ai-setup')">Cancel</button>
+    </div>
+  </div>
+
   <!-- DONT FORGET MODAL -->
   <div class="modal-overlay" id="modal-dont-forget" onclick="closeModalOutside(event,'modal-dont-forget')">
     <div class="modal">
@@ -1176,7 +1210,8 @@ function db() {
     assignees: stored.assignees || ['Chris', 'Maddie'],
     periodMode: stored.periodMode || 'biweekly',
     paydays: stored.paydays || { type: '26', anchor: '2026-05-01' },
-    firstRunComplete: stored.firstRunComplete !== undefined ? stored.firstRunComplete : true
+    firstRunComplete: stored.firstRunComplete !== undefined ? stored.firstRunComplete : true,
+    anthropicKey: stored.anthropicKey || ''
   };
 }
 
@@ -1203,6 +1238,7 @@ function migrateData(data) {
   if (!data.categories) data.categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
   if (!data.assignees) data.assignees = ['Chris', 'Maddie'];
   if (!data.periodMode) data.periodMode = 'biweekly';
+  if (data.anthropicKey === undefined) data.anthropicKey = '';
   if (!data.paydays) data.paydays = { type: '26', anchor: '2026-05-01' };
   // Existing users: mark first run as complete so setup screen never shows
   if (data.firstRunComplete === undefined) data.firstRunComplete = true;
@@ -1373,6 +1409,7 @@ function switchView(v) {
   if (v === 'todo') renderTodo();
   if (v === 'history') renderHistory();
   if (v === 'settings') renderSettings();
+  updateFab(v);
 }
 
 // ─── MODALS ───────────────────────────────────────────────────────
@@ -2307,7 +2344,7 @@ function renderGroceryTabContent() {
     });
     html += `</div>
       <button class="link-btn" onclick="openRecipeModal(null)" style="display:block;text-align:center;margin-bottom:8px;">+ Add New Recipe</button>
-      <button class="link-btn" onclick="openModal('modal-ai-recipe')" style="display:block;text-align:center;margin-bottom:16px;color:var(--fix);">✦ Paste & Parse with AI</button>`;
+      ${getAnthropicKey() ? `<button class="link-btn" onclick="openModal('modal-ai-recipe')" style="display:block;text-align:center;margin-bottom:16px;color:var(--fix);">✦ Paste & Parse with AI</button>` : `<div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px;">Enable AI parsing in Settings → AI Features</div>`}`;
     content.innerHTML = html;
 
   } else if (groceryTab === 'staples') {
@@ -2607,10 +2644,21 @@ async function parseAIRecipe() {
   btn.disabled = true;
   btn.textContent = 'Parsing...';
   status.textContent = 'Sending to AI...';
+  const apiKey = getAnthropicKey();
+  if (!apiKey) {
+    status.textContent = 'No API key set. Go to Settings → AI Features to set up.';
+    btn.disabled = false; btn.textContent = 'Parse with AI';
+    return;
+  }
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
@@ -2806,34 +2854,33 @@ function openRecipeModal(edit) {
   document.getElementById('recipe-name').value = edit ? (edit.name || '') : '';
   document.getElementById('recipe-servings').value = edit ? (edit.servings || 4) : 4;
   const catEl = document.getElementById('recipe-category');
-  if (catEl) catEl.value = edit ? (edit.category || 'Other') : 'Other';
+  if (catEl) {
+    const cats = ['Dinner','Soup','Appetizers','Desserts'];
+    const val = edit ? (edit.category || 'Dinner') : 'Dinner';
+    catEl.value = cats.includes(val) ? val : 'Dinner';
+  }
   const costEl = document.getElementById('recipe-cost');
-  costEl.value = edit && edit.cost ? parseFloat(edit.cost).toFixed(2) : '';
-  delete costEl.dataset.manualOverride;
-  document.getElementById('recipe-cost-calc').textContent = '';
-  document.getElementById('recipe-cost-hint').style.display = 'none';
+  if (costEl) costEl.value = edit && edit.cost ? parseFloat(edit.cost).toFixed(2) : '';
+  const calcEl = document.getElementById('recipe-cost-calc');
+  if (calcEl) calcEl.textContent = edit && edit.cost ? fmt(parseFloat(edit.cost)) : '$0.00';
   document.getElementById('recipe-notes').value = edit ? (edit.notes || '') : '';
+  // Instructions — support both old steps array and new instructions string
+  const instrEl = document.getElementById('recipe-instructions');
+  if (instrEl) {
+    if (edit && edit.instructions) {
+      instrEl.value = edit.instructions;
+    } else if (edit && edit.steps && edit.steps.length > 0) {
+      instrEl.value = edit.steps.map(function(s){return typeof s === 'string' ? s : (s.text||'');}).join(' ');
+    } else {
+      instrEl.value = '';
+    }
+  }
   document.getElementById('ing-rows').innerHTML = '';
-  document.getElementById('step-rows').innerHTML = '';
   document.getElementById('delete-recipe-btn').style.display = edit ? 'block' : 'none';
 
-  // Load ingredients — support both string and object formats
-  const ings = (edit && edit.ingredients && edit.ingredients.length > 0)
-    ? edit.ingredients
-    : [{}];
+  const ings = (edit && edit.ingredients && edit.ingredients.length > 0) ? edit.ingredients : [{}];
   ings.forEach(d => addIngRow(typeof d === 'string' ? { name: d } : (d || {})));
   setTimeout(recalcRecipeCost, 100);
-
-  // Load steps
-  const steps = (edit && edit.steps && edit.steps.length > 0) ? edit.steps : [''];
-  steps.forEach(s => addStepRow(typeof s === 'string' ? s : (s.text || '')));
-
-  // Manual override: remove old listener by cloning, then add fresh one
-  const newCostEl = costEl.cloneNode(true);
-  costEl.parentNode.replaceChild(newCostEl, costEl);
-  newCostEl.addEventListener('input', function() {
-    this.dataset.manualOverride = this.value ? '1' : '';
-  });
 
   openModal('modal-recipe');
 }
@@ -3090,11 +3137,37 @@ function renderSettings() {
     </div>
   </div>`;
 
-  // ── Pay Period ──
+  // ── AI Features ──
+  const hasAiKey = !!(data.anthropicKey);
   html += `<div class="card settings-section">
-    <div class="settings-label">Pay Period</div>
-    <div class="settings-row"><span>Anchor date</span><span style="font-weight:600;">May 1, 2026</span></div>
-    <div class="settings-row"><span>Frequency</span><span style="font-weight:600;">Bi-weekly (14 days)</span></div>
+    <div class="settings-label">AI Features <span style="font-size:10px;font-weight:400;color:var(--muted);">Optional</span></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5;">
+      AI recipe parsing automatically extracts ingredients and instructions from pasted text.
+      Requires a free Anthropic account. Small costs may apply depending on usage — new accounts receive free credits.
+    </div>
+    <div class="settings-row">
+      <div>
+        <div style="font-size:14px;font-weight:500;">API Key</div>
+        <div style="font-size:11px;color:var(--muted);">${hasAiKey ? '✓ Connected' : 'Not set up'}</div>
+      </div>
+      <button class="link-btn" onclick="openAiSetup()">${hasAiKey ? 'Update' : 'Setup'}</button>
+    </div>
+    ${hasAiKey ? `<div class="settings-row"><span style="color:var(--danger);">Remove API key</span><button class="link-btn" style="color:var(--danger);" onclick="removeAiKey()">Remove</button></div>` : ''}
+  </div>`;
+
+  // ── Period Mode ──
+  const modeLabel = data.periodMode === 'monthly'
+    ? '24 pay periods/year (semi-monthly)'
+    : '26 pay periods/year (bi-weekly)';
+  html += `<div class="card settings-section">
+    <div class="settings-label">Budget Cycle</div>
+    <div class="settings-row">
+      <div>
+        <div style="font-size:14px;font-weight:500;">Period mode</div>
+        <div style="font-size:11px;color:var(--muted);">${modeLabel}</div>
+      </div>
+      <button class="link-btn" onclick="confirmChangePeriodMode()">Change</button>
+    </div>
   </div>`;
 
   // ── Sync ──
@@ -3239,8 +3312,8 @@ function renderTodo() {
   function taskHtml(t) {
     const assignee = t.assignee || 'both';
     const recDot = t.isRecurring
-      ? `<div style="width:6px;height:6px;border-radius:50%;background:var(--food);flex-shrink:0;margin-top:6px;margin-right:2px;" title="Recurring task"></div>`
-      : `<div style="width:6px;flex-shrink:0;margin-right:2px;"></div>`;
+      ? `<span style="font-size:11px;color:var(--muted);flex-shrink:0;margin-right:4px;margin-top:2px;" title="Recurring task">↻</span>`
+      : `<span style="width:0;flex-shrink:0;margin-right:0;"></span>`;
 
     // Due date logic — 3 states: overdue, soon (within 3 days), normal
     let dueBarColor = 'transparent';
@@ -3263,11 +3336,10 @@ function renderTodo() {
 
     return `<div style="display:flex;align-items:stretch;gap:0;padding:11px 0;border-bottom:0.5px solid var(--border);">
       <div style="width:4px;border-radius:2px;background:${dueBarColor};flex-shrink:0;margin-right:8px;align-self:stretch;"></div>
-      ${recDot}
       <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTaskDone('${t.id}')"
         style="width:18px;height:18px;accent-color:var(--food);flex-shrink:0;margin-top:2px;margin-right:10px;">
       <div style="flex:1;cursor:pointer;" onclick="openEditTask('${t.id}')">
-        <div style="font-size:14px;font-weight:500;${t.done ? 'text-decoration:line-through;color:var(--muted);' : ''}">${t.title}</div>
+        <div style="font-size:14px;font-weight:500;${t.done ? 'text-decoration:line-through;color:var(--muted);' : ''};display:flex;align-items:center;gap:4px;">${t.title}${t.isRecurring ? '<span style="font-size:11px;color:var(--muted);">↻</span>' : ''}</div>
         <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;align-items:center;">
           <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${assigneeColor[assignee]};color:${assigneeText[assignee]};">${assignee === 'both' ? 'Both' : assignee}</span>
           <span style="font-size:10px;font-weight:700;color:${prioColor[t.priority||'normal']};">${prioLabel[t.priority||'normal']}</span>
@@ -4152,6 +4224,11 @@ function frSkipComplete() {
   renderDashboard();
 }
 
+function confirmChangePeriodMode() {
+  if (!confirm('Changing your budget cycle will affect how past transactions are grouped in History. Your data will not be deleted, but some periods may display differently. Continue?')) return;
+  openFirstRunSettings();
+}
+
 function openFirstRunSettings() {
   if (!confirm('This will re-open the setup wizard. Your existing data will not be deleted. Continue?')) return;
   const data = db();
@@ -4168,9 +4245,68 @@ function openFirstRunSettings() {
 function fabAction() {
   if (currentView === 'todo') {
     openAddTask();
+  } else if (currentView === 'groceries') {
+    openDontForgetModal();
   } else {
     openAddTxn();
   }
+}
+
+function updateFab(view) {
+  const fab = document.getElementById('main-fab');
+  const label = document.getElementById('fab-label');
+  const icon = document.getElementById('fab-icon');
+  if (!fab) return;
+  if (view === 'groceries') {
+    fab.style.borderRadius = '20px';
+    fab.style.padding = '12px 16px';
+    fab.style.width = 'auto';
+    if (label) { label.style.display = 'inline'; label.textContent = "Don't Forget"; }
+  } else {
+    fab.style.borderRadius = '50%';
+    fab.style.padding = '';
+    fab.style.width = '52px';
+    if (label) label.style.display = 'none';
+  }
+  if (view === 'history' || view === 'settings') {
+    fab.style.display = 'none';
+  } else {
+    fab.style.display = 'flex';
+  }
+}
+
+// ─── AI FEATURES ─────────────────────────────────────────────────
+function openAiSetup() {
+  const data = db();
+  document.getElementById('ai-key-input').value = data.anthropicKey || '';
+  openModal('modal-ai-setup');
+}
+
+function saveAiKey() {
+  const key = document.getElementById('ai-key-input').value.trim();
+  if (!key || !key.startsWith('sk-ant-')) {
+    toast('Please enter a valid Anthropic API key (starts with sk-ant-)');
+    return;
+  }
+  const data = db();
+  data.anthropicKey = key;
+  save(data);
+  closeModal('modal-ai-setup');
+  toast('AI recipe parsing enabled!');
+  renderSettings();
+}
+
+function removeAiKey() {
+  if (!confirm('Remove your Anthropic API key? AI recipe parsing will be disabled.')) return;
+  const data = db();
+  data.anthropicKey = '';
+  save(data);
+  toast('API key removed');
+  renderSettings();
+}
+
+function getAnthropicKey() {
+  return db().anthropicKey || '';
 }
 
 function refreshCurrentView() {
@@ -4407,4 +4543,62 @@ async function checkForUpdate() {
 })();
 </script>
 </body>
-</html>
+</html>  <!-- RECIPE MODAL -->
+  <div class="modal-overlay" id="modal-recipe" onclick="closeModalOutside(event,'modal-recipe')">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="recipe-modal-title">Add Recipe</div>
+      <input type="hidden" id="edit-recipe-id">
+      <div class="form-field">
+        <label class="form-label">Recipe Name</label>
+        <input class="form-input" id="recipe-name" placeholder="e.g. Chicken Tikka Masala">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-field">
+          <label class="form-label">Category</label>
+          <select class="form-input" id="recipe-category">
+            <option value="Dinner">Dinner</option>
+            <option value="Soup">Soup</option>
+            <option value="Appetizers">Appetizers</option>
+            <option value="Desserts">Desserts</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Servings</label>
+          <input class="form-input" id="recipe-servings" type="number" value="4" min="1" inputmode="numeric">
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Ingredients</label>
+        <div style="display:grid;grid-template-columns:1fr 90px 70px 28px;gap:5px;margin-bottom:5px;">
+          <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;">Name</div>
+          <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;">Amount</div>
+          <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;">Price</div>
+          <div></div>
+        </div>
+        <div id="ing-rows"></div>
+        <button class="link-btn" onclick="addIngRow()" style="margin-top:6px;">+ Add ingredient</button>
+      </div>
+      <div style="background:var(--light);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <span style="font-size:13px;font-weight:600;color:var(--food-d);">Estimated cost</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:15px;font-weight:700;color:#1a2e1b;" id="recipe-cost-calc">$0.00</span>
+          <input class="form-input" id="recipe-cost" type="number" step="0.01" placeholder="Override"
+                 style="width:80px;font-size:12px;padding:6px 8px;" inputmode="decimal">
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Instructions</label>
+        <textarea class="form-input" id="recipe-instructions" rows="5"
+          placeholder="Paste or type instructions here..." style="resize:none;font-size:13px;line-height:1.5;"></textarea>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Notes (optional)</label>
+        <input class="form-input" id="recipe-notes" placeholder="e.g. Can sub coconut cream">
+      </div>
+      <button class="btn btn-primary" onclick="saveRecipe()">Save Recipe</button>
+      <button class="btn btn-danger" id="delete-recipe-btn" style="display:none;" onclick="deleteRecipe()">Delete</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-recipe')">Cancel</button>
+    </div>
+  </div>
+
