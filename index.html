@@ -2310,16 +2310,6 @@ function renderGroceryTabContent() {
     }
     html += `</div>`;
 
-    // ── Food subscriptions (fixed expenses tagged as food) ──
-    const foodFixed = data.fixedExpenses.filter(f => f.periodKey === pKey && f.cat === 'food');
-    if (foodFixed.length > 0) {
-      html += `<div class="card" style="border-top:3px solid #C4A882;"><div class="section-head"><div class="section-head-title" style="color:#8a6e4a;">Subscriptions</div><div style="display:flex;gap:10px;"><button class="link-btn" style="color:#C4A882;" onclick="openAddFixedForCat('food')">+ Add</button><button class="link-btn" onclick="switchView('budget');setBudgetSubview('scheduled');">Manage</button></div></div>`;
-      foodFixed.forEach(f => {
-        const renewDisplay = f.renewalDate || f.startDate || '';
-        html += `<div class="txn-row" onclick="openEditFixed('${f.id}')" style="cursor:pointer;"><div class="txn-dot" style="background:var(--fix-l);"><i class="ti ti-repeat" style="color:var(--fix);font-size:13px;"></i></div><div class="txn-info"><div class="txn-name">${f.name}</div><div class="txn-meta">Next: ${renewDisplay} · ${f.freq}</div></div><div class="txn-right"><div class="txn-amount" style="color:var(--fix-d);">${fmt(f.amount)}</div></div></div>`;
-      });
-      html += `</div>`;
-    }
 
     // ── Selected recipes ──
     html += `<div class="card" style="border-top:3px solid #C4956A;"><div class="section-head"><div class="section-head-title" style="color:#7a5a2e;">This Week's Recipes</div><button class="link-btn" onclick="switchGroceryTab('recipes')">Pick</button></div>`;
@@ -2333,6 +2323,19 @@ function renderGroceryTabContent() {
       }).join('');
     }
     html += `<button class="btn btn-secondary" onclick="resetWeek()" style="margin-top:10px;font-size:13px;">Reset Week Selections</button></div>`;
+    // ── Food subscriptions (fixed expenses tagged as food) ──
+    const foodFixed = data.fixedExpenses.filter(f => f.periodKey === pKey && f.cat === 'food');
+    html += `<div class="card" style="border-top:3px solid #C4A882;"><div class="section-head"><div class="section-head-title" style="color:#8a6e4a;">Subscriptions</div><div style="display:flex;gap:10px;"><button class="link-btn" style="color:#C4A882;" onclick="openAddFixedForCat('food')">+ Add</button><button class="link-btn" onclick="switchView('budget');setBudgetSubview('scheduled');">Manage</button></div></div>`;
+    if (foodFixed.length === 0) {
+      html += `<div style="font-size:12px;color:var(--muted);padding:4px 0;">Tap + Add to track things like HelloFresh, vitamin deliveries, etc.</div>`;
+    } else {
+      foodFixed.forEach(f => {
+        const renewDisplay = fmtDate(f.renewalDate || f.startDate || '');
+        html += `<div class="txn-row" onclick="openEditFixed('${f.id}')" style="cursor:pointer;"><div class="txn-dot" style="background:var(--fix-l);"><i class="ti ti-repeat" style="color:var(--fix);font-size:13px;"></i></div><div class="txn-info"><div class="txn-name">${f.name}</div><div class="txn-meta">Next: ${renewDisplay} · ${f.freq}</div></div><div class="txn-right"><div class="txn-amount" style="color:var(--fix-d);">${fmt(f.amount)}</div></div></div>`;
+      });
+    }
+    html += `</div>`;
+
     content.innerHTML = html;
 
 
