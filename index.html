@@ -1451,10 +1451,11 @@ function populatePeriodSelect(selectId) {
       periods.push(s);
     }
   }
+  const currentKey = isMonthly ? monthPeriodKey(currentMonthStart()) : periodKey(currentPeriodStart());
   sel.innerHTML = periods.reverse().map(s => {
     const k = isMonthly ? monthPeriodKey(s) : periodKey(s);
     const label = isMonthly ? monthLabel(s) : periodLabel(s);
-    const isCurrent = k === periodKey(current);
+    const isCurrent = k === currentKey;
     return `<option value="${k}" ${isCurrent ? 'selected' : ''}>${label}${isCurrent ? ' (current)' : ''}</option>`;
   }).join('');
 }
@@ -2991,43 +2992,65 @@ function deleteRecipe() {
 // ─── HISTORY ─────────────────────────────────────────────────────
 function renderHistory() {
   const data = db();
-  const today = new Date();
-  const current = currentPeriodStart();
-
-  // Get past periods with data
+  const isMonthly = data.periodMode === 'monthly';
   const periods = [];
-  for (let i = -12; i <= 0; i++) {
-    const s = new Date(current);
-    s.setDate(current.getDate() + i * PERIOD_DAYS);
-    periods.push(s);
+
+  if (isMonthly) {
+    for (let i = -11; i <= 0; i++) {
+      periods.push(monthStart(i));
+    }
+  } else {
+    const current = currentPeriodStart();
+    for (let i = -12; i <= 0; i++) {
+      const s = new Date(current);
+      s.setDate(current.getDate() + i * PERIOD_DAYS);
+      periods.push(s);
+    }
   }
 
-  const content = document.getElementById('history-content');
-  let html = `<div class="card-title">Spending History</div>`;
+  const histEl = document.getElementById('history-content');
+  let html = '';
 
-  const rows = periods.reverse().map(pStart => {
-    const pKey = periodKey(pStart);
+  periods.reverse().forEach(pStart => {
+    const pKey = isMonthly ? monthPeriodKey(pStart) : periodKey(pStart);
+    const pLabel = isMonthly ? monthLabel(pStart) : periodLabel(pStart);
     const spent = getSpendForPeriod(data, pKey);
     const total = Object.values(spent).reduce((s,v) => s+v, 0);
-    const isCurrent = pKey === periodKey(current);
-    if (!isCurrent && total === 0) return '';
-    const budget = Object.values(data.budgets).reduce((s,v) => s+v, 0);
-    const over = total > budget;
-    return `
-      <div class="hist-row" onclick="showHistoryDetail('${pKey}')">
-        <div>
-          <div class="hist-period">${periodLabel(pStart)}${isCurrent ? ' <span style="font-size:10px;color:var(--food);font-weight:700;">CURRENT</span>' : ''}</div>
-          <div class="hist-sub">${Object.entries(spent).filter(([,v])=>v>0).map(([k,v]) => `${CATS[k].label}: ${fmt(v)}`).join(' · ')}</div>
-        </div>
-        <div>
-          <div class="hist-total" style="color:${over ? 'var(--danger)' : 'inherit'}">${fmt(total)}</div>
-          <div style="font-size:10px;color:var(--muted);text-align:right;">${over ? 'Over' : 'of'} ${fmt(budget)}</div>
-        </div>
-      </div>`;
-  }).filter(Boolean);
+    const txnCount = data.transactions.filter(t => t.periodKey === pKey).length
+                   + data.fixedExpenses.filter(f => f.periodKey === pKey).length;
+    if (total === 0 && txnCount === 0) return;
 
-  html += rows.length > 0 ? rows.join('') : `<div class="empty"><i class="ti ti-chart-bar-off"></i><div class="empty-text">No history yet</div></div>`;
-  content.innerHTML = html;
+    const catBars = Object.entries(getCats())
+      .filter(([k,c]) => !c.parentId && k !== 'meals_out' && (spent[k]||0) > 0)
+      .map(([k,c]) => {
+        const pct = Math.min(100, ((spent[k]||0) / (data.categories||[]).find(x=>x.id===k)?.budget||1)*100);
+        return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:${c.color};flex-shrink:0;"></div>
+          <div style="font-size:10px;color:var(--muted);width:60px;">${c.label}</div>
+          <div style="flex:1;height:3px;background:var(--border);border-radius:2px;">
+            <div style="width:${pct}%;height:100%;background:${c.color};border-radius:2px;"></div>
+          </div>
+          <div style="font-size:10px;color:var(--muted);width:40px;text-align:right;">${fmt(spent[k]||0)}</div>
+        </div>`;
+      }).join('');
+
+    html += `<div class="card" style="cursor:pointer;" onclick="showHistoryDetail('${pKey}')">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div>
+          <div style="font-size:14px;font-weight:600;">${pLabel}</div>
+          <div style="font-size:11px;color:var(--muted);">${txnCount} transaction${txnCount!==1?'s':''}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:18px;font-weight:700;color:var(--food-d);">${fmt(total)}</div>
+          <i class="ti ti-chevron-right" style="color:var(--muted);font-size:14px;"></i>
+        </div>
+      </div>
+      ${catBars}
+    </div>`;
+  });
+
+  if (!html) html = `<div class="empty"><i class="ti ti-history"></i><div class="empty-text">No history yet</div></div>`;
+  histEl.innerHTML = html;
 }
 
 function showHistoryDetail(pKey) {
@@ -3423,8 +3446,6 @@ function renderTodo() {
   } else {
     console.warn('todo-content element not found');
   }
-  const dbg = document.getElementById('todo-debug');
-  if (dbg) dbg.textContent = todos.length + ' task(s) in data';
 }
 
 function openAddTask() {
