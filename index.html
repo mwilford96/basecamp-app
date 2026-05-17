@@ -104,8 +104,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;}
 .fab:active{transform:scale(.92);}
 
 /* Modal */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
-.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:none;align-items:flex-end;justify-content:center;}
+.modal-overlay.open{display:flex;}
 .modal{background:var(--surface);border-radius:20px 20px 0 0;padding:20px 16px;width:100%;max-width:430px;transform:translateY(100%);transition:transform .3s ease;max-height:92vh;overflow-y:auto;padding-bottom:calc(20px + env(safe-area-inset-bottom));}
 .modal-overlay.open .modal{transform:translateY(0);}
 .modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
@@ -2059,23 +2059,56 @@ function renderScheduledPayments(contentEl) {
     html += `</div>`;
   });
 
-  // Also show any fixed expenses with unrecognised categories
-  const uncategorised = active.filter(f => {
-    const fCat = f.cat || 'fix';
-    const catDef2 = (data.categories||DEFAULT_CATEGORIES).find(c => c.id === fCat);
-    // Uncategorised if: cat doesn't exist, or cat is not recurring type
-    return !catDef2 || catDef2.type !== 'recurring';
-  });
-  if (uncategorised.length > 0) {
-    html += `<div class="card"><div class="section-head"><div class="section-head-title">Other</div><button class="link-btn" onclick="openAddFixed()">+ Add</button></div>`;
-    html += uncategorised.map(f => `
-      <div class="fixed-row" onclick="openEditFixed('${f.id}')" style="cursor:pointer;">
-        <div class="txn-dot" style="background:var(--fix-l);"><i class="ti ti-repeat" style="color:var(--fix);font-size:14px;"></i></div>
-        <div class="fixed-info"><div class="fixed-name">${f.name}</div><div class="fixed-freq">${f.freq} · ${fmtDate(f.renewalDate||'')}</div></div>
-        <div class="fixed-amount">${fmt(f.amount)}</div>
-      </div>`).join('');
+  // Group non-recurring-typed categories that have fixed expenses (e.g. food subscriptions)
+  // Find all unique cats used in active fixed expenses that aren't recurring-typed
+  const nonRecurringCatIds = [...new Set(active
+    .filter(f => {
+      const fCat = f.cat || 'fix';
+      const catDef2 = (data.categories||DEFAULT_CATEGORIES).find(c => c.id === fCat);
+      return !catDef2 || catDef2.type !== 'recurring';
+    })
+    .map(f => f.cat || 'fix')
+  )];
+
+  nonRecurringCatIds.forEach(catId => {
+    const catDef = (data.categories||DEFAULT_CATEGORIES).find(c => c.id === catId);
+    const cat = cats[catId] || { label: catId, color:'#7BA7C7', light:'#EBF3F9', dark:'#3d6f94' };
+    const catItems = active.filter(f => (f.cat||'fix') === catId);
+    if (catItems.length === 0) return;
+    html += `<div class="card" style="border-left:3px solid ${cat.color};">
+      <div class="section-head">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="cat-dot" style="background:${cat.color};"></div>
+          <div class="section-head-title">${catDef ? catDef.label : catId} Subscriptions</div>
+        </div>
+        <button class="link-btn" onclick="openAddFixedForCat('${catId}')">+ Add</button>
+      </div>`;
+
+    cadenceOrder.forEach(cadence => {
+      const group = catItems.filter(f => (f.freq||'monthly') === cadence);
+      if (group.length === 0) return;
+      const groupTotal = group.reduce((s,f) => s+(f.amount||0), 0);
+      html += `<div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:10px 0 6px;padding-bottom:4px;border-bottom:0.5px solid var(--border);">${cadenceLabel[cadence]}</div>`;
+      html += group.map(f => `
+        <div class="fixed-row" onclick="openEditFixed('${f.id}')" style="cursor:pointer;">
+          <div class="txn-dot" style="background:${cat.light};">
+            <i class="ti ti-repeat" style="color:${cat.dark};font-size:14px;"></i>
+          </div>
+          <div class="fixed-info">
+            <div class="fixed-name">${f.name}</div>
+            <div class="fixed-freq">Next: ${fmtDate(f.renewalDate||'')}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="fixed-amount" style="color:${cat.dark};">${fmt(f.amount)}</div>
+          </div>
+        </div>`).join('');
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:8px;background:${cat.light};margin-top:6px;margin-bottom:4px;">
+        <span style="font-size:11px;font-weight:600;color:${cat.dark};">${cadenceLabel[cadence]} total</span>
+        <span style="font-size:13px;font-weight:700;color:${cat.dark};">${fmt(groupTotal)} ${cadenceSuffix[cadence]}</span>
+      </div>`;
+    });
     html += `</div>`;
-  }
+  });
 
   if (ended.length > 0) {
     html += `<div class="card"><div class="section-head"><div class="section-head-title">Ended</div><button class="link-btn" onclick="toggleEndedSubs(this)">Show</button></div>
@@ -2324,7 +2357,8 @@ function renderGroceryTabContent() {
     }
     html += `<button class="btn btn-secondary" onclick="resetWeek()" style="margin-top:10px;font-size:13px;">Reset Week Selections</button></div>`;
     // ── Food subscriptions (fixed expenses tagged as food) ──
-    const foodFixed = data.fixedExpenses.filter(f => f.periodKey === pKey && f.cat === 'food');
+    const today3 = localDateStr();
+    const foodFixed = data.fixedExpenses.filter(f => f.cat === 'food' && (!f.endDate || f.endDate > today3));
     html += `<div class="card" style="border-top:3px solid #C4A882;"><div class="section-head"><div class="section-head-title" style="color:#8a6e4a;">Subscriptions</div><div style="display:flex;gap:10px;"><button class="link-btn" style="color:#C4A882;" onclick="openAddFixedForCat('food')">+ Add</button><button class="link-btn" onclick="switchView('budget');setBudgetSubview('scheduled');">Manage</button></div></div>`;
     if (foodFixed.length === 0) {
       html += `<div style="font-size:12px;color:var(--muted);padding:4px 0;">Tap + Add to track things like HelloFresh, vitamin deliveries, etc.</div>`;
