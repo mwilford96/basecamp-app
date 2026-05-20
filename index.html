@@ -1549,7 +1549,7 @@ function openAddFixed() {
   document.getElementById('fixed-name').value = '';
   document.getElementById('fixed-amount').value = '';
   document.getElementById('fixed-freq').value = 'monthly';
-  document.getElementById('fixed-date').value = '';
+  document.getElementById('fixed-date').value = localDateStr();
   document.getElementById('fixed-end-date').value = '';
   document.getElementById('fixed-renewal-preview').textContent = '';
   populateFixedCatDropdown('fix');
@@ -1584,6 +1584,7 @@ function calcNextRenewal() {
 }
 
 function nextRenewalDate(startDate, freq) {
+  if (!startDate) return '';
   const d = new Date(startDate + 'T12:00:00');
   const now = new Date(); now.setHours(12,0,0,0);
   if (d >= now) return startDate; // start date is in future, that IS the next renewal
