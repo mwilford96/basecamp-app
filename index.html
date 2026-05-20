@@ -1988,6 +1988,15 @@ function renderBudget() {
           return effective === key || t.cat === key;
         });
 
+    // Sort: oldest date first, upcoming charges last
+    catTxns.sort((a, b) => {
+      if (a.upcoming && !b.upcoming) return 1;
+      if (!a.upcoming && b.upcoming) return -1;
+      const dA = a.date || a.renewalDate || '';
+      const dB = b.date || b.renewalDate || '';
+      return dA.localeCompare(dB);
+    });
+
     html += `
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
