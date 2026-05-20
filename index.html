@@ -1976,17 +1976,22 @@ function renderBudget() {
     const over = s > b;
     const pct = b > 0 ? Math.min((s/b)*100,100) : 0;
     const todayStr = localDateStr();
+    // Fixed expenses for this category (works for ALL category types)
+    const catFixed = fixed.filter(f => (f.cat || 'fix') === key).map(f => {
+      const renewDate = f.renewalDate || f.startDate || '';
+      const isUpcoming = renewDate && renewDate > todayStr;
+      return {...f, cat: f.cat || 'fix', paid: f.paid || false, _isFixed: true, upcoming: isUpcoming};
+    });
     const catTxns = cat.type === 'recurring'
-      ? fixed.filter(f => (f.cat || 'fix') === key).map(f => {
-          const renewDate = f.renewalDate || f.startDate || '';
-          const isUpcoming = renewDate && renewDate > todayStr;
-          return {...f, cat: f.cat || 'fix', paid: f.paid || false, _isFixed: true, upcoming: isUpcoming};
-        })
-      : txns.filter(t => {
-          const tCatDef = getCats()[t.cat];
-          const effective = tCatDef && tCatDef.parentId ? tCatDef.parentId : t.cat;
-          return effective === key || t.cat === key;
-        });
+      ? catFixed
+      : [
+          ...txns.filter(t => {
+            const tCatDef = getCats()[t.cat];
+            const effective = tCatDef && tCatDef.parentId ? tCatDef.parentId : t.cat;
+            return effective === key || t.cat === key;
+          }),
+          ...catFixed, // also include any fixed expenses tagged to this manual category
+        ];
 
     // Sort: oldest date first, upcoming charges last
     catTxns.sort((a, b) => {
