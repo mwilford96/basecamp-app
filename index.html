@@ -1701,9 +1701,15 @@ function getUnpaidTotal(data) {
   const isMonthly = data.periodMode === 'monthly';
   const pStart = isMonthly ? currentMonthStart() : currentPeriodStart();
   const pKey = isMonthly ? monthPeriodKey(pStart) : periodKey(pStart);
+  const todayStr = localDateStr();
   // Only count unpaid transactions from the current period
   const txns = data.transactions.filter(t => !t.paid && t.periodKey === pKey);
-  const fixed = data.fixedExpenses.filter(f => !f.paid && f.periodKey === pKey);
+  // Exclude future fixed expenses (not yet charged)
+  const fixed = data.fixedExpenses.filter(f => {
+    if (f.paid || f.periodKey !== pKey) return false;
+    const renewDate = f.renewalDate || f.startDate || '';
+    return !renewDate || renewDate <= todayStr; // only count if already renewed
+  });
   const total = txns.reduce((s,t) => s+(t.tbd?0:t.amount), 0) + fixed.reduce((s,f) => s+f.amount, 0);
   return { total, count: txns.length + fixed.length };
 }
@@ -1858,7 +1864,29 @@ function txnRow(t, data, showEdit = true) {
   const editAttr = showEdit && t.id && !isFixed ? `onclick="openEditTxn('${t.id}')" style="cursor:pointer;"` : '';
   const amountDisplay = t.tbd
     ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--light);color:var(--muted);border:1px solid var(--border);">TBD</span>`
-    : `<div class="txn-amount" style="color:${cat.dark}">${fmt(t.amount)}</div>`;
+    : `<div class="txn-amount" style="color:${t.upcoming ? 'var(--muted)' : cat.dark}">${fmt(t.amount)}</div>`;
+
+  // Upcoming: dimmed, "in X days", no paid toggle
+  if (t.upcoming) {
+    const renewDate = t.renewalDate || t.startDate || '';
+    const daysUntil = renewDate ? Math.round((new Date(renewDate+'T12:00:00') - new Date()) / 86400000) : null;
+    const daysLabel = daysUntil !== null ? (daysUntil === 0 ? 'today' : daysUntil === 1 ? 'tomorrow' : 'in ' + daysUntil + ' days') : '';
+    return `
+      <div class="txn-row" style="opacity:.55;">
+        <div class="txn-dot" style="background:var(--light)">
+          <i class="ti ti-refresh" style="color:var(--muted);font-size:13px;" aria-hidden="true"></i>
+        </div>
+        <div class="txn-info">
+          <div class="txn-name">${t.name}</div>
+          <div class="txn-meta">${t.freq || 'Recurring'} · renews ${fmtDate(renewDate)}</div>
+        </div>
+        <div class="txn-right">
+          ${amountDisplay}
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">${daysLabel}</div>
+        </div>
+      </div>`;
+  }
+
   return `
     <div class="txn-row" ${editAttr}>
       <div class="txn-dot" style="background:${cat.light}">
@@ -1947,8 +1975,13 @@ function renderBudget() {
     const b = catDef ? (catDef.budget || 0) : 0;
     const over = s > b;
     const pct = b > 0 ? Math.min((s/b)*100,100) : 0;
+    const todayStr = localDateStr();
     const catTxns = cat.type === 'recurring'
-      ? fixed.filter(f => (f.cat || 'fix') === key).map(f => ({...f, cat: f.cat || 'fix', paid: f.paid || false, _isFixed: true}))
+      ? fixed.filter(f => (f.cat || 'fix') === key).map(f => {
+          const renewDate = f.renewalDate || f.startDate || '';
+          const isUpcoming = renewDate && renewDate > todayStr;
+          return {...f, cat: f.cat || 'fix', paid: f.paid || false, _isFixed: true, upcoming: isUpcoming};
+        })
       : txns.filter(t => {
           const tCatDef = getCats()[t.cat];
           const effective = tCatDef && tCatDef.parentId ? tCatDef.parentId : t.cat;
