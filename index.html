@@ -1671,7 +1671,9 @@ function saveFixed() {
     data.fixedExpenses.push(fe);
   }
   save(data);
+  generateScheduledCharges();
   closeModal('modal-fixed');
+  toast('Saved!');
   refreshCurrentView();
 }
 
@@ -2044,7 +2046,7 @@ function renderBudget() {
     const pct = b > 0 ? Math.min((s/b)*100,100) : 0;
     const todayStr = localDateStr();
     // Scheduled charges for this category (from charge engine)
-    const charges = (data.scheduledCharges || []).filter(c => (c.cat || 'fix') === key);
+    const charges = (data.scheduledCharges || []).filter(c => c.periodKey === pKey && (c.cat || 'fix') === key);
     const catCharges = charges.map(c => {
       const isUpcoming = c.chargeDate && c.chargeDate > todayStr;
       return {...c, _isFixed: true, upcoming: isUpcoming, renewalDate: c.chargeDate, date: c.chargeDate};
@@ -2146,7 +2148,13 @@ function renderScheduledPayments(contentEl) {
     } else {
       // Group by cadence
       cadenceOrder.forEach(cadence => {
-        const group = catItems.filter(f => (f.freq || 'monthly') === cadence);
+        const group = catItems
+          .filter(f => (f.freq || 'monthly') === cadence)
+          .sort((a, b) => {
+            const aDate = a.renewalDate || a.startDate || '';
+            const bDate = b.renewalDate || b.startDate || '';
+            return aDate.slice(5).localeCompare(bDate.slice(5));
+          });
         if (group.length === 0) return;
         const groupTotal = group.reduce((s,f) => s + (f.amount||0), 0);
         html += `<div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:10px 0 6px;padding-bottom:4px;border-bottom:0.5px solid var(--border);">${cadenceLabel[cadence]}</div>`;
