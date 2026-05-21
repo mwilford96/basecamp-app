@@ -1149,6 +1149,7 @@ function defaultDB() {
     periodMode: 'biweekly',
     paydays: { type: '26', anchor: '2026-05-01' },
     firstRunComplete: false,
+    scheduledCharges: [],
     weeklyPlan: {},       // periodKey -> { week: 1|2, selectedRecipes: [ids], groceryLogs: [{store,amount,date}] }
     groceryLogs: {}       // periodKey -> { w1: [{store,amount,date}], w2: [...] }
   };
@@ -1173,7 +1174,8 @@ function db() {
     assignees: stored.assignees || ['Chris', 'Maddie'],
     periodMode: stored.periodMode || 'biweekly',
     paydays: stored.paydays || { type: '26', anchor: '2026-05-01' },
-    firstRunComplete: stored.firstRunComplete !== undefined ? stored.firstRunComplete : true
+    firstRunComplete: stored.firstRunComplete !== undefined ? stored.firstRunComplete : true,
+    scheduledCharges: stored.scheduledCharges || []
   };
 }
 
@@ -1200,6 +1202,7 @@ function migrateData(data) {
   if (!data.categories) data.categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
   if (!data.assignees) data.assignees = ['Chris', 'Maddie'];
   if (!data.periodMode) data.periodMode = 'biweekly';
+  if (!data.scheduledCharges) data.scheduledCharges = [];
   if (!data.paydays) data.paydays = { type: '26', anchor: '2026-05-01' };
   // Existing users: mark first run as complete so setup screen never shows
   if (data.firstRunComplete === undefined) data.firstRunComplete = true;
@@ -1583,6 +1586,24 @@ function calcNextRenewal() {
   preview.textContent = next ? 'Next renewal: ' + next : '';
 }
 
+function lastChargeDate(startDate, freq) {
+  // Returns the most recent charge date on or before today
+  if (!startDate) return localDateStr();
+  const d = new Date(startDate + 'T12:00:00');
+  const now = new Date(); now.setHours(12,0,0,0);
+  if (d > now) return startDate; // hasn't charged yet, use start date
+  const freqMap = { monthly: 1, biweekly: 0.5, quarterly: 3, annual: 12 };
+  const months = freqMap[freq] || 1;
+  let last = new Date(d);
+  let next = new Date(d);
+  while (next <= now) {
+    last = new Date(next);
+    if (months < 1) { next.setDate(next.getDate() + 14); }
+    else { next.setMonth(next.getMonth() + months); }
+  }
+  return localDateStr(last);
+}
+
 function nextRenewalDate(startDate, freq) {
   if (!startDate) return '';
   const d = new Date(startDate + 'T12:00:00');
@@ -1633,8 +1654,10 @@ function saveFixed() {
       const existing = data.fixedExpenses.find(x => x.id === id) || {};
       pKey = existing.periodKey || periodKey(getPeriodStart(new Date(renewalDate + 'T12:00:00')));
     } else {
-      // New subscription: assign to the period of next renewal
-      const pStart = getPeriodStart(new Date(renewalDate + 'T12:00:00'));
+      // New subscription: assign to the period of the MOST RECENT charge
+      // (not the next renewal, which would put it in a future period)
+      const lastCharge = lastChargeDate(startDate, freq);
+      const pStart = getPeriodStart(new Date(lastCharge + 'T12:00:00'));
       pKey = periodKey(pStart);
     }
   }
@@ -1655,11 +1678,39 @@ function saveFixed() {
 function deleteFixed() {
   const data = db();
   const id = document.getElementById('edit-fixed-id').value;
+  const fe = data.fixedExpenses.find(x => x.id === id);
+  if (!fe) return;
+
+  // Offer choice: end subscription or permanently delete
+  const choice = confirm(
+    'End "' + fe.name + '"?\n\n' +
+    'OK = Mark as ended (keeps history)\n' +
+    'Cancel = Keep subscription active'
+  );
+  if (!choice) return;
+
+  const permanentDelete = confirm(
+    'Delete all history for "' + fe.name + '" permanently?\n\n' +
+    'OK = Delete permanently (cannot be undone)\n' +
+    'Cancel = Just mark as ended (recommended)'
+  );
+
   const prev = JSON.parse(JSON.stringify(data));
-  data.fixedExpenses = data.fixedExpenses.filter(x => x.id !== id);
-  save(data);
-  closeModal('modal-fixed');
-  showUndo('Fixed expense deleted', prev);
+
+  if (permanentDelete) {
+    data.fixedExpenses = data.fixedExpenses.filter(x => x.id !== id);
+    data.scheduledCharges = (data.scheduledCharges || []).filter(c => c.fixedExpenseId !== id);
+    save(data);
+    closeModal('modal-fixed');
+    showUndo('Subscription permanently deleted', prev);
+  } else {
+    // Mark as ended today — moves to Ended section, history preserved
+    const idx = data.fixedExpenses.findIndex(x => x.id === id);
+    if (idx !== -1) data.fixedExpenses[idx].endDate = localDateStr();
+    save(data);
+    closeModal('modal-fixed');
+    toast('"' + fe.name + '" marked as ended');
+  }
   refreshCurrentView();
 }
 
@@ -1676,6 +1727,15 @@ function toggleTxnPaid(id) {
 
 function toggleFixedPaid(id) {
   const data = db();
+  // Try scheduledCharges first, then fall back to fixedExpenses
+  const scIdx = (data.scheduledCharges || []).findIndex(c => c.id === id);
+  if (scIdx !== -1) {
+    data.scheduledCharges[scIdx].paid = !data.scheduledCharges[scIdx].paid;
+    save(data);
+    refreshCurrentView();
+    renderDashboard();
+    return;
+  }
   const idx = data.fixedExpenses.findIndex(f => f.id === id);
   if (idx === -1) return;
   data.fixedExpenses[idx].paid = !data.fixedExpenses[idx].paid;
@@ -1688,20 +1748,19 @@ function toggleFixedPaid(id) {
 function getSpendForPeriod(data, pKey) {
   const cats = getCats();
   const txns = data.transactions.filter(t => t.periodKey === pKey);
-  const fixed = data.fixedExpenses.filter(f => f.periodKey === pKey);
+  // Use scheduledCharges for subscription tracking, fall back to fixedExpenses for legacy
+  const charges = (data.scheduledCharges || []).filter(c => c.periodKey === pKey);
   const spent = {};
   Object.keys(cats).forEach(c => spent[c] = 0);
   txns.forEach(t => {
-    // Pool subcategories into parent
     const catDef = cats[t.cat];
     const targetCat = catDef && catDef.parentId ? catDef.parentId : t.cat;
-    spent[targetCat] = (spent[targetCat] || 0) + t.amount;
+    spent[targetCat] = (spent[targetCat] || 0) + (t.tbd ? 0 : t.amount);
   });
-  fixed.forEach(f => {
-    // Include if periodKey matches — end date doesn't remove the charge from this period
-    const catDef = cats[f.cat || 'fix'];
-    const targetCat = catDef && catDef.parentId ? catDef.parentId : (f.cat || 'fix');
-    spent[targetCat] = (spent[targetCat] || 0) + f.amount;
+  charges.forEach(c => {
+    const catDef = cats[c.cat || 'fix'];
+    const targetCat = catDef && catDef.parentId ? catDef.parentId : (c.cat || 'fix');
+    spent[targetCat] = (spent[targetCat] || 0) + c.amount;
   });
   return spent;
 }
@@ -1713,11 +1772,10 @@ function getUnpaidTotal(data) {
   const todayStr = localDateStr();
   // Only count unpaid transactions from the current period
   const txns = data.transactions.filter(t => !t.paid && t.periodKey === pKey);
-  // Exclude future fixed expenses (not yet charged)
-  const fixed = data.fixedExpenses.filter(f => {
-    if (f.paid || f.periodKey !== pKey) return false;
-    const renewDate = f.renewalDate || f.startDate || '';
-    return !renewDate || renewDate <= todayStr; // only count if already renewed
+  // Use scheduledCharges — exclude future (upcoming) charges
+  const fixed = (data.scheduledCharges || []).filter(c => {
+    if (c.paid || c.periodKey !== pKey) return false;
+    return !c.chargeDate || c.chargeDate <= todayStr;
   });
   const total = txns.reduce((s,t) => s+(t.tbd?0:t.amount), 0) + fixed.reduce((s,f) => s+f.amount, 0);
   return { total, count: txns.length + fixed.length };
@@ -1969,7 +2027,7 @@ function renderBudget() {
     .reduce((s,c) => s + (c.budget||0), 0);
 
   const txns = data.transactions.filter(t => t.periodKey === pKey);
-  const fixed = data.fixedExpenses.filter(f => f.periodKey === pKey);
+  const fixed = (data.scheduledCharges || []).filter(c => c.periodKey === pKey);
 
   let html = `
     <div class="total-banner">
@@ -1985,21 +2043,21 @@ function renderBudget() {
     const over = s > b;
     const pct = b > 0 ? Math.min((s/b)*100,100) : 0;
     const todayStr = localDateStr();
-    // Fixed expenses for this category (works for ALL category types)
-    const catFixed = fixed.filter(f => (f.cat || 'fix') === key).map(f => {
-      const renewDate = f.renewalDate || f.startDate || '';
-      const isUpcoming = renewDate && renewDate > todayStr;
-      return {...f, cat: f.cat || 'fix', paid: f.paid || false, _isFixed: true, upcoming: isUpcoming};
+    // Scheduled charges for this category (from charge engine)
+    const charges = (data.scheduledCharges || []).filter(c => (c.cat || 'fix') === key);
+    const catCharges = charges.map(c => {
+      const isUpcoming = c.chargeDate && c.chargeDate > todayStr;
+      return {...c, _isFixed: true, upcoming: isUpcoming, renewalDate: c.chargeDate, date: c.chargeDate};
     });
     const catTxns = cat.type === 'recurring'
-      ? catFixed
+      ? catCharges
       : [
           ...txns.filter(t => {
             const tCatDef = getCats()[t.cat];
             const effective = tCatDef && tCatDef.parentId ? tCatDef.parentId : t.cat;
             return effective === key || t.cat === key;
           }),
-          ...catFixed, // also include any fixed expenses tagged to this manual category
+          ...catCharges,
         ];
 
     // Sort: oldest date first, upcoming charges last
@@ -2142,7 +2200,13 @@ function renderScheduledPayments(contentEl) {
       </div>`;
 
     cadenceOrder.forEach(cadence => {
-      const group = catItems.filter(f => (f.freq||'monthly') === cadence);
+      const group = catItems
+        .filter(f => (f.freq||'monthly') === cadence)
+        .sort((a, b) => {
+          const aDate = a.renewalDate || a.startDate || '';
+          const bDate = b.renewalDate || b.startDate || '';
+          return aDate.slice(5).localeCompare(bDate.slice(5));
+        });
       if (group.length === 0) return;
       const groupTotal = group.reduce((s,f) => s+(f.amount||0), 0);
       html += `<div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:10px 0 6px;padding-bottom:4px;border-bottom:0.5px solid var(--border);">${cadenceLabel[cadence]}</div>`;
@@ -3073,7 +3137,7 @@ function renderHistory() {
     const spent = getSpendForPeriod(data, pKey);
     const total = Object.values(spent).reduce((s,v) => s+v, 0);
     const txnCount = data.transactions.filter(t => t.periodKey === pKey).length
-                   + data.fixedExpenses.filter(f => f.periodKey === pKey).length;
+                   + (data.scheduledCharges || []).filter(c => c.periodKey === pKey).length;
     if (total === 0 && txnCount === 0) return;
 
     const catBars = Object.entries(getCats())
@@ -3114,8 +3178,8 @@ function showHistoryDetail(pKey) {
   const cats = getCats();
   const pStart = new Date(pKey);
   const txns = data.transactions.filter(t => t.periodKey === pKey);
-  const fixed = data.fixedExpenses.filter(f => f.periodKey === pKey);
-  const allItems = [...txns, ...fixed.map(f => ({...f, cat: f.cat||'fix', paid: f.paid||false, _isFixed: true}))];
+  const fixed = (data.scheduledCharges || []).filter(c => c.periodKey === pKey);
+  const allItems = [...txns, ...fixed.map(c => ({...c, cat: c.cat||'fix', paid: c.paid||false, _isFixed: true, date: c.chargeDate}))];
 
   document.getElementById('hd-title').textContent = periodLabel(pStart);
 
@@ -4348,6 +4412,104 @@ function updateFab(view) {
 
 
 
+// ─── SCHEDULED CHARGE ENGINE ─────────────────────────────────────
+
+function generateScheduledCharges() {
+  const data = db();
+  if (!data.scheduledCharges) data.scheduledCharges = [];
+  const todayStr = localDateStr();
+  const isMonthly = data.periodMode === 'monthly';
+  let changed = false;
+
+  // Cap backfill at 12 months back
+  const backfillLimit = new Date();
+  backfillLimit.setMonth(backfillLimit.getMonth() - 12);
+  const backfillLimitStr = localDateStr(backfillLimit);
+
+  data.fixedExpenses.forEach(fe => {
+    const startDate = fe.startDate || fe.renewalDate || '';
+    if (!startDate) return;
+
+    // Don't backfill before 12 months ago
+    const effectiveStart = startDate < backfillLimitStr ? backfillLimitStr : startDate;
+    const endDate = fe.endDate || '';
+
+    // Walk through all charge dates from effectiveStart to today
+    let chargeDate = new Date(effectiveStart + 'T12:00:00');
+    const freqMap = { monthly: 1, biweekly: 0.5, quarterly: 3, annual: 12 };
+    const months = freqMap[fe.freq] || 1;
+
+    // Advance to first charge on or after effectiveStart
+    const originalStart = new Date((fe.startDate || fe.renewalDate || effectiveStart) + 'T12:00:00');
+    chargeDate = new Date(originalStart);
+
+    // Advance to within our window
+    while (localDateStr(chargeDate) < effectiveStart) {
+      if (months < 1) chargeDate.setDate(chargeDate.getDate() + 14);
+      else chargeDate.setMonth(chargeDate.getMonth() + months);
+    }
+
+    const now = new Date(); now.setHours(12,0,0,0);
+
+    while (chargeDate <= now) {
+      const chargeDateStr = localDateStr(chargeDate);
+
+      // Stop if past end date
+      if (endDate && chargeDateStr > endDate) break;
+
+      // Calculate periodKey for this charge
+      let pKey;
+      if (isMonthly) {
+        pKey = monthPeriodKey(new Date(chargeDate.getFullYear(), chargeDate.getMonth(), 1));
+      } else {
+        pKey = periodKey(getPeriodStart(new Date(chargeDateStr + 'T12:00:00')));
+      }
+
+      // Check if charge already exists for this fe + period
+      const exists = data.scheduledCharges.some(c =>
+        c.fixedExpenseId === fe.id && c.periodKey === pKey
+      );
+
+      if (!exists) {
+        // Find existing fixedExpense record for this period to check paid status
+        const existingFeRecord = data.fixedExpenses.find(f =>
+          f.id === fe.id + '_charge_' + pKey
+        );
+
+        data.scheduledCharges.push({
+          id: 'sc_' + fe.id + '_' + pKey,
+          fixedExpenseId: fe.id,
+          name: fe.name,
+          amount: fe.amount,
+          cat: fe.cat || 'fix',
+          freq: fe.freq,
+          periodKey: pKey,
+          chargeDate: chargeDateStr,
+          paid: false,
+          isScheduledCharge: true,
+        });
+        changed = true;
+      }
+
+      // Advance to next charge
+      if (months < 1) chargeDate.setDate(chargeDate.getDate() + 14);
+      else chargeDate.setMonth(chargeDate.getMonth() + months);
+    }
+  });
+
+  if (changed) save(data);
+  return changed;
+}
+
+function toggleScheduledChargePaid(id) {
+  const data = db();
+  const idx = data.scheduledCharges.findIndex(c => c.id === id);
+  if (idx === -1) return;
+  data.scheduledCharges[idx].paid = !data.scheduledCharges[idx].paid;
+  save(data);
+  refreshCurrentView();
+}
+
 function refreshCurrentView() {
   if (currentView === 'dashboard') renderDashboard();
   else if (currentView === 'budget') renderBudget();
@@ -4546,6 +4708,9 @@ async function checkForUpdate() {
   } else {
     setDB(migrateData(existing));
   }
+
+  // Generate scheduled charges for recurring subscriptions
+  generateScheduledCharges();
 
   // Inject any due recurring tasks
   checkAndInjectRecurringTodos();
