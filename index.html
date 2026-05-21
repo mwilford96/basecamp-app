@@ -1627,8 +1627,16 @@ function saveFixed() {
     pKey = periodKey(getPeriodStart(new Date(lastChargeDate + 'T12:00:00')));
   } else {
     renewalDate = nextRenewalDate(startDate, freq) || startDate;
-    const pStart = getPeriodStart(new Date(renewalDate + 'T12:00:00'));
-    pKey = periodKey(pStart);
+    if (id) {
+      // Editing existing: preserve the original periodKey so history isn't broken
+      // Only update periodKey if this is a new subscription
+      const existing = data.fixedExpenses.find(x => x.id === id) || {};
+      pKey = existing.periodKey || periodKey(getPeriodStart(new Date(renewalDate + 'T12:00:00')));
+    } else {
+      // New subscription: assign to the period of next renewal
+      const pStart = getPeriodStart(new Date(renewalDate + 'T12:00:00'));
+      pKey = periodKey(pStart);
+    }
   }
 
   const fe = { id: id || Date.now().toString(), name, amount, freq, startDate, renewalDate, endDate, periodKey: pKey, cat };
