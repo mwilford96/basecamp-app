@@ -836,15 +836,16 @@ select.form-input{appearance:none;-webkit-appearance:none;}
       <div class="form-field">
         <label class="form-label">Name</label>
         <input class="form-input" id="cat-name" placeholder="e.g. Fun Money">
+        <div id="cat-name-lock-note" style="display:none;font-size:11px;color:var(--muted);margin-top:4px;">⚠️ Name is locked — grocery tracking depends on this category.</div>
       </div>
-      <div class="form-field">
+      <div class="form-field" id="cat-type-wrap">
         <label class="form-label">Type</label>
         <select class="form-input" id="cat-type">
           <option value="manual">Manual (log individual transactions)</option>
           <option value="recurring">Recurring (shows in Scheduled Payments)</option>
         </select>
       </div>
-      <div class="form-field">
+      <div class="form-field" id="cat-is-sub-wrap">
         <div class="toggle-row">
           <span class="toggle-label">Subcategory of existing budget?</span>
           <input type="checkbox" id="cat-is-sub" onchange="document.getElementById('cat-parent-wrap').style.display=this.checked?'block':'none'" style="width:18px;height:18px;accent-color:var(--food);">
@@ -884,20 +885,6 @@ select.form-input{appearance:none;-webkit-appearance:none;}
   </div>
 
   <!-- SETTINGS BUDGET EDIT MODAL -->
-  <div class="modal-overlay" id="modal-budget-edit" onclick="closeModalOutside(event,'modal-budget-edit')">
-    <div class="modal">
-      <div class="modal-handle"></div>
-      <div class="modal-title">Edit Budgets</div>
-      <div class="form-field"><label class="form-label">Recreation ($)</label><input class="form-input" id="set-rec" type="number" step="0.01" inputmode="decimal"></div>
-      <div class="form-field"><label class="form-label">Gas ($)</label><input class="form-input" id="set-gas" type="number" step="0.01" inputmode="decimal"></div>
-      <div class="form-field"><label class="form-label">Food ($)</label><input class="form-input" id="set-food" type="number" step="0.01" inputmode="decimal"></div>
-      <div class="form-field"><label class="form-label">Savings ($)</label><input class="form-input" id="set-sav" type="number" step="0.01" inputmode="decimal"></div>
-      <div class="form-field"><label class="form-label">Fixed Expenses ($)</label><input class="form-input" id="set-fix" type="number" step="0.01" inputmode="decimal"></div>
-      <button class="btn btn-primary" onclick="saveBudgets()">Save Budgets</button>
-      <button class="btn btn-secondary" onclick="closeModal('modal-budget-edit')">Cancel</button>
-    </div>
-  </div>
-
 </div>
 
 <script>
@@ -1186,7 +1173,7 @@ function migrateData(data) {
   // Ensure all top-level keys exist
   if (!data.groceryLogs) data.groceryLogs = {};
   if (!data.weeklyPlan) data.weeklyPlan = {};
-  if (!data.recipes) data.recipes = defaultDB().recipes;
+  if (!data.recipes || !Array.isArray(data.recipes)) data.recipes = defaultDB().recipes;
   if (!data.staples) {
     data.staples = defaultDB().staples;
   } else {
@@ -1244,6 +1231,7 @@ function migrateData(data) {
 }
 
 function save(data) {
+  data.lastSaved = Date.now(); // timestamp for cloud sync conflict resolution
   const migrated = migrateData(data);
   setDB(migrated);
   cloudSave(migrated);
@@ -1256,6 +1244,11 @@ async function manualSync() {
   }
   const cloudData = await cloudLoad();
   if (cloudData && cloudData.budgets) {
+    const localTs = db().lastSaved || 0;
+    const cloudTs = cloudData.lastSaved || 0;
+    if (localTs > cloudTs) {
+      if (!confirm('Your local data appears to be newer than the cloud copy. Pulling from cloud will overwrite your local changes. Continue?')) return;
+    }
     setDB(migrateData(cloudData));
     refreshCurrentView();
     renderDashboard();
@@ -1852,7 +1845,7 @@ function renderDashboard() {
   // Spend
   const spent = getSpendForPeriod(data, pKey);
   const totalSpent = Object.values(spent).reduce((s, v) => s + v, 0);
-  const totalBudget = Object.values(data.budgets).reduce((s, v) => s + v, 0);
+  const totalBudget = (data.categories || DEFAULT_CATEGORIES).filter(c => !c.parentId && c.id !== 'meals_out').reduce((s,c) => s+(c.budget||0), 0);
   document.getElementById('db-total').textContent = fmt(totalSpent);
   document.getElementById('db-budget-total').textContent = fmt(totalBudget);
 
@@ -2038,6 +2031,15 @@ function renderBudget() {
     <div class="total-banner">
       <div><div class="total-label">Total Spent</div><div class="total-amount">${fmt(totalSpent)}</div></div>
       <div style="text-align:right"><div class="total-label">Budget</div><div style="font-size:20px;font-weight:600;">${fmt(totalBudget)}</div></div>
+    </div>
+    <div class="card" style="padding:12px 14px;margin-bottom:2px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <i class="ti ti-notes" style="font-size:14px;color:var(--food-d);"></i>
+        <span style="font-size:12px;font-weight:600;color:var(--food-d);">Period Notes</span>
+      </div>
+      <textarea id="budget-period-notes" class="week-notes" rows="3"
+        placeholder="Notes for this period — big purchases, reminders, anything worth tracking..."
+        style="width:100%;font-size:13px;" onchange="savePeriodNotes(this.value,'${pKey}')">${(data.weeklyPlan[pKey]||{}).periodNotes||''}</textarea>
     </div>`;
 
   // Per category breakdown — top level only
@@ -2398,8 +2400,7 @@ function renderGroceries() {
   const foodFixedSpent = foodFixedExpenses.reduce((s, f) => s + f.amount, 0);
 
   const budget = data.budgets.food;
-  const hhBudget = 100;
-  const foodBudget = budget - hhBudget;
+  const foodBudget = budget;
   const w1Budget = foodBudget / 2;
   // Week 2 budget tightens based on what was actually spent in week 1
   const w2Budget = Math.max(0, foodBudget - w1Spent);
@@ -2987,9 +2988,9 @@ function deleteGroceryLog(pKey, wk, idx) {
 }
 
 // ─── WEEK NOTES ───────────────────────────────────────────────────
-function savePeriodNotes(val) {
+function savePeriodNotes(val, pKey) {
   const data = db();
-  const pKey = periodKey(currentPeriodStart());
+  if (!pKey) pKey = periodKey(currentPeriodStart());
   if (!data.weeklyPlan[pKey]) data.weeklyPlan[pKey] = { selectedRecipes: [], checkedStaples: [] };
   data.weeklyPlan[pKey].periodNotes = val;
   save(data);
@@ -3225,7 +3226,7 @@ function renderHistory() {
           <div style="font-size:11px;color:var(--muted);">${txnCount} transaction${txnCount!==1?'s':''}</div>
         </div>
         <div style="text-align:right;">
-          <div style="font-size:18px;font-weight:700;color:var(--food-d);">${fmt(total)}</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text);">${fmt(total)}</div>
           <i class="ti ti-chevron-right" style="color:var(--muted);font-size:14px;"></i>
         </div>
       </div>
@@ -3253,6 +3254,7 @@ function showHistoryDetail(pKey) {
     .filter(c => !c.parentId && c.id !== 'meals_out')
     .reduce((s,c) => s + (c.budget||0), 0);
 
+  const histPeriodNotes = (data.weeklyPlan[pKey]||{}).periodNotes || '';
   // Period total banner
   let html = `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:12px;background:#1a2e1b;margin-bottom:12px;">
     <div>
@@ -3263,12 +3265,15 @@ function showHistoryDetail(pKey) {
       <div style="font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;">Budget</div>
       <div style="font-size:16px;font-weight:500;color:rgba(255,255,255,.8);margin-top:2px;">${fmt(totalBudget)}</div>
     </div>
-  </div>`;
+  </div>
+  ${histPeriodNotes ? `<div style="background:var(--light);border-radius:10px;padding:10px 14px;margin-bottom:12px;border-left:3px solid var(--food);">
+    <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--food-d);margin-bottom:4px;">Period Notes</div>
+    <div style="font-size:13px;color:var(--text);white-space:pre-wrap;">${histPeriodNotes}</div>
+  </div>` : ''}`;
 
   if (allItems.length === 0) {
     html += `<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px;">No transactions this period</div>`;
   } else {
-    // Group by top-level category (subcategories pool into parent)
     const topLevelCats = Object.entries(cats).filter(([k,c]) => !c.parentId && k !== 'meals_out');
     topLevelCats.forEach(([catId, cat]) => {
       // Find items for this category (including subcategories and fixed)
@@ -3378,14 +3383,7 @@ function renderSettings() {
     </div>
   </div>`;
 
-  // ── Sync ──
-  html += `<div class="card settings-section">
-    <div class="settings-label">Sync</div>
-    <div class="settings-row">
-      <div><div style="font-size:14px;font-weight:500;">Pull latest from cloud</div><div style="font-size:11px;color:var(--muted);">Force refresh from GitHub</div></div>
-      <button class="link-btn" onclick="manualSync()">Sync</button>
-    </div>
-  </div>`;
+
 
   // ── Data ──
   html += `<div class="card settings-section">
@@ -3407,23 +3405,7 @@ function renderSettings() {
   document.getElementById('settings-content').innerHTML = html;
 }
 
-function openEditBudgets() {
-  const data = db();
-  const b = data.budgets;
-  document.getElementById('set-rec').value = b.rec;
-  document.getElementById('set-gas').value = b.gas;
-  document.getElementById('set-food').value = b.food;
-  document.getElementById('set-sav').value = b.sav;
-  document.getElementById('set-fix').value = b.fix;
-  openModal('modal-budget-edit');
-}
 
-function saveBudgets() {
-  // Budget editing now handled through category modal
-  closeModal('modal-budget-edit');
-  renderSettings();
-  renderDashboard();
-}
 
 function clearData() {
   if (!confirm('This will delete ALL transactions, logs, recipes, and settings. Are you sure?')) return;
@@ -3453,8 +3435,13 @@ function importData(event) {
       const parsed = JSON.parse(e.target.result);
       if (!parsed.budgets || !parsed.transactions) { alert('Invalid backup file.'); return; }
       if (!confirm('This will replace all current data with the backup. Continue?')) return;
-      save(parsed);
-      alert('Data imported successfully!');
+      // Write locally only — do NOT auto-push to cloud (avoids overwriting good cloud data with a bad import)
+      const migrated = migrateData(parsed);
+      setDB(migrated);
+      if (confirm('Import successful! Push this data to cloud sync as well?')) {
+        cloudSave(migrated);
+      }
+      alert('Data imported. Refreshing...');
       location.reload();
     } catch(err) {
       alert('Could not read file. Make sure it is a valid backup.');
@@ -3911,6 +3898,9 @@ function openAddCategory() {
   document.getElementById('cat-name-lock-note').style.display = 'none';
   document.getElementById('cat-budget').value = '';
   document.getElementById('cat-type').value = 'manual';
+  document.getElementById('cat-type-wrap').style.display = 'block';
+  document.getElementById('cat-is-sub-wrap').style.display = 'block';
+  document.getElementById('cat-is-sub').checked = false;
   document.getElementById('cat-parent-wrap').style.display = 'none';
   document.getElementById('cat-delete-btn').style.display = 'none';
   populateCatParentDropdown(null);
@@ -3926,25 +3916,30 @@ function openEditCategory(id) {
   editingCatId = id;
   document.getElementById('cat-modal-title').textContent = 'Edit Category';
   document.getElementById('cat-name').value = catDef.label;
-  // Lock name field for food category — grocery logic depends on this ID
+
+  // Lock name field for food/meals_out — grocery logic depends on these IDs
   const nameInput = document.getElementById('cat-name');
-  if (catDef.id === 'food' || catDef.id === 'meals_out') {
-    nameInput.readOnly = true;
-    nameInput.style.opacity = '0.6';
-    nameInput.style.cursor = 'not-allowed';
-    nameInput.title = 'This category name cannot be changed — grocery tracking depends on it.';
-    document.getElementById('cat-name-lock-note').style.display = 'block';
-  } else {
-    nameInput.readOnly = false;
-    nameInput.style.opacity = '';
-    nameInput.style.cursor = '';
-    nameInput.title = '';
-    document.getElementById('cat-name-lock-note').style.display = 'none';
-  }
+  const isGroceryLocked = (catDef.id === 'food' || catDef.id === 'meals_out');
+  nameInput.readOnly = isGroceryLocked;
+  nameInput.style.opacity = isGroceryLocked ? '0.6' : '';
+  nameInput.style.cursor = isGroceryLocked ? 'not-allowed' : '';
+  nameInput.title = isGroceryLocked ? 'This category name cannot be changed — grocery tracking depends on it.' : '';
+  document.getElementById('cat-name-lock-note').style.display = isGroceryLocked ? 'block' : 'none';
+
   document.getElementById('cat-budget').value = catDef.budget || '';
   document.getElementById('cat-type').value = catDef.type || 'manual';
+
+  // For built-in categories: hide type selector and subcategory toggle (structure is fixed)
+  const isBuiltIn = catDef.isBuiltIn;
+  document.getElementById('cat-type-wrap').style.display = isBuiltIn ? 'none' : 'block';
+  document.getElementById('cat-is-sub-wrap').style.display = isBuiltIn ? 'none' : 'block';
+
+  // Set subcategory checkbox state
+  const isSubEl = document.getElementById('cat-is-sub');
+  isSubEl.checked = !!catDef.parentId;
   document.getElementById('cat-parent-wrap').style.display = catDef.parentId ? 'block' : 'none';
-  document.getElementById('cat-delete-btn').style.display = catDef.isBuiltIn ? 'none' : 'block';
+
+  document.getElementById('cat-delete-btn').style.display = isGroceryLocked ? 'none' : 'block';
   populateCatParentDropdown(catDef.parentId);
   populateCatColourPicker(catDef.colorId);
   updateCatTypeUI();
@@ -4037,7 +4032,7 @@ function deleteCategory() {
   if (!editingCatId) return;
   const data = db();
   const catDef = (data.categories||[]).find(c => c.id === editingCatId);
-  if (catDef && catDef.isBuiltIn) { toast('Cannot delete built-in categories.'); return; }
+  if (catDef && (catDef.id === 'food' || catDef.id === 'meals_out')) { toast('Food and Meals Out cannot be deleted — grocery tracking depends on them.'); return; }
   if (!confirm('Delete this category? Transactions will keep their category code but the category will no longer display.')) return;
   data.categories = (data.categories||[]).filter(c => c.id !== editingCatId && c.parentId !== editingCatId);
   save(data);
@@ -4837,12 +4832,24 @@ async function checkForUpdate() {
   checkForUpdate();
 
   if (getApiKey() && getGistId()) {
-    document.getElementById('db-period-label').textContent = 'Syncing...';
     try {
       const cloudData = await cloudLoad();
       if (cloudData && cloudData.budgets) {
-        setDB(migrateData(cloudData));
-        renderDashboard();
+        // Only overwrite local if cloud data is NEWER than local
+        // Compare lastSaved timestamps — if cloud has no timestamp, don't overwrite
+        const localTs = db().lastSaved || 0;
+        const cloudTs = cloudData.lastSaved || 0;
+        if (cloudTs > localTs) {
+          setDB(migrateData(cloudData));
+          renderDashboard();
+          setSyncIndicator('ok');
+        } else {
+          // Local is same age or newer — push local up to cloud to keep in sync
+          setSyncIndicator('ok');
+          if (localTs > cloudTs) {
+            cloudSave(db()); // silent background push
+          }
+        }
       } else if (cloudData === null) {
         // cloudLoad already set error indicator - push local data up as fallback
         setSyncIndicator('saving');
