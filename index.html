@@ -1150,6 +1150,7 @@ function defaultDB() {
     paydays: { type: '26', anchor: '2026-05-01' },
     firstRunComplete: false,
     scheduledCharges: [],
+    groceryWarnings: false,
     weeklyPlan: {},       // periodKey -> { week: 1|2, selectedRecipes: [ids], groceryLogs: [{store,amount,date}] }
     groceryLogs: {}       // periodKey -> { w1: [{store,amount,date}], w2: [...] }
   };
@@ -1175,7 +1176,8 @@ function db() {
     periodMode: stored.periodMode || 'biweekly',
     paydays: stored.paydays || { type: '26', anchor: '2026-05-01' },
     firstRunComplete: stored.firstRunComplete !== undefined ? stored.firstRunComplete : true,
-    scheduledCharges: stored.scheduledCharges || []
+    scheduledCharges: stored.scheduledCharges || [],
+    groceryWarnings: stored.groceryWarnings !== undefined ? stored.groceryWarnings : false
   };
 }
 
@@ -1203,6 +1205,7 @@ function migrateData(data) {
   if (!data.assignees) data.assignees = ['Chris', 'Maddie'];
   if (!data.periodMode) data.periodMode = 'biweekly';
   if (!data.scheduledCharges) data.scheduledCharges = [];
+  if (data.groceryWarnings === undefined) data.groceryWarnings = false;
   if (!data.paydays) data.paydays = { type: '26', anchor: '2026-05-01' };
   // Existing users: mark first run as complete so setup screen never shows
   if (data.firstRunComplete === undefined) data.firstRunComplete = true;
@@ -2302,6 +2305,59 @@ function switchGroceryTab(tab) {
   renderGroceryTabContent();
 }
 
+function groceryBudgetWarning(data, isMonthly, foodBudget, pKey, pStart, activeWeek, w1Spent) {
+  if (!data.groceryWarnings) return '';
+  const numWeeks = isMonthly ? 4 : 2;
+  const baselinePerWeek = foodBudget / numWeeks;
+
+  if (isMonthly) {
+    const weeks = getMonthWeeks(pStart);
+    const activeWkIdx = getActiveWeekIndex();
+    // Check ALL weeks up to and including current active week
+    let totalSpentSoFar = 0;
+    let weeksAccountedFor = activeWkIdx + 1; // include active week
+    weeks.slice(0, weeksAccountedFor).forEach(w => {
+      const txnsInWk = data.transactions.filter(t =>
+        t.periodKey === pKey && t.date >= w.startStr && t.date <= w.endStr &&
+        (t.cat === 'food' || t.cat === 'meals_out'));
+      totalSpentSoFar += txnsInWk.reduce((s,t) => s+(t.tbd?0:t.amount), 0);
+    });
+    const expectedSoFar = baselinePerWeek * weeksAccountedFor;
+    const totalOverage = Math.max(0, totalSpentSoFar - expectedSoFar);
+    const weeksRemaining = numWeeks - weeksAccountedFor;
+    if (weeksRemaining > 0 && totalOverage > 0) {
+      const reducedBy = totalOverage / weeksRemaining;
+      const newAllowance = Math.max(0, baselinePerWeek - reducedBy);
+      const futureLabel = weeksRemaining === 1
+        ? 'Week ' + (weeksAccountedFor + 1)
+        : 'Weeks ' + (weeksAccountedFor + 1) + '–' + numWeeks;
+      return '<div style="background:#FAEEDA;border-left:3px solid #EF9F27;padding:9px 11px;margin-top:8px;border-radius:0 8px 8px 0;">' +
+        '<div style="font-size:11px;font-weight:600;color:#633806;margin-bottom:2px;">⚠ ' + futureLabel + ' allowance is tighter</div>' +
+        '<div style="font-size:11px;color:#854F0B;line-height:1.4;">Spending is ' + fmt(totalOverage) + ' over pace. ' + futureLabel + ' reduced by ' + fmt(reducedBy) + ' each to ' + fmt(newAllowance) + '/week.</div>' +
+        '</div>';
+    }
+  } else {
+    // Biweekly: check total food spend vs baseline at any point in the period
+    const totalFoodSpent = data.transactions.filter(t =>
+      t.periodKey === pKey && (t.cat === 'food' || t.cat === 'meals_out') && !t.tbd
+    ).reduce((s,t) => s+t.amount, 0);
+    const expectedSoFar = baselinePerWeek * activeWeek;
+    const totalOverage = Math.max(0, totalFoodSpent - expectedSoFar);
+    if (totalOverage > 0) {
+      const weeksRemaining = numWeeks - activeWeek;
+      if (weeksRemaining > 0) {
+        const reducedBy = totalOverage / weeksRemaining;
+        const newAllowance = Math.max(0, baselinePerWeek - reducedBy);
+        return '<div style="background:#FAEEDA;border-left:3px solid #EF9F27;padding:9px 11px;margin-top:8px;border-radius:0 8px 8px 0;">' +
+          '<div style="font-size:11px;font-weight:600;color:#633806;margin-bottom:2px;">⚠ Week 2 allowance is tighter</div>' +
+          '<div style="font-size:11px;color:#854F0B;line-height:1.4;">Spending is ' + fmt(totalOverage) + ' over pace. Week 2 reduced to ' + fmt(newAllowance) + ' vs the usual ' + fmt(baselinePerWeek) + '/week.</div>' +
+          '</div>';
+      }
+    }
+  }
+  return '';
+}
+
 function renderGroceries() {
   const data = db();
   const isMonthly = data.periodMode === 'monthly';
@@ -2396,7 +2452,7 @@ function renderGroceries() {
     <div style="margin-top:8px;">
       <span style="font-size:11px;color:var(--food-d);opacity:.8;">Meals out: ${fmt(mealsSpent)}${foodFixedSpent > 0 ? ' · Subs: '+fmt(foodFixedSpent) : ''}</span>
     </div>
-    ${w2Budget < w1Budget * 0.85 ? `<div style="font-size:11px;color:var(--danger);margin-top:4px;">⚠ Week 2 budget is tighter than usual — ${fmt(w2Budget)} vs typical ${fmt(w1Budget)}</div>` : ''}`;
+    ${groceryBudgetWarning(data, isMonthly, foodBudget, pKey, pStart, activeWeek, w1Spent)}`;
 
   renderGroceryTabContent();
 }
@@ -3291,6 +3347,22 @@ function renderSettings() {
     </div>
   </div>`;
 
+  // ── Grocery Alerts ──
+  html += `<div class="card settings-section">
+    <div class="settings-label">Grocery Alerts</div>
+    <div class="settings-row">
+      <div style="flex:1;padding-right:12px;">
+        <div style="font-size:14px;font-weight:500;">Weekly budget warnings</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5;">Assumes your grocery budget is split evenly across weeks — 2 for bi-weekly, 4 for monthly. Turn on if you budget weekly and want a nudge when overspending in one week reduces what's left for the rest.</div>
+      </div>
+      <div onclick="toggleGroceryWarnings()" style="cursor:pointer;flex-shrink:0;">
+        <div style="width:44px;height:26px;border-radius:13px;background:${data.groceryWarnings ? '#1a2e1b' : '#ddd'};position:relative;transition:background .2s;">
+          <div style="width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:2px;${data.groceryWarnings ? 'right:2px;' : 'left:2px;'}transition:all .2s;"></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
   // ── Period Mode ──
   const modeLabel = data.periodMode === 'monthly'
     ? '24 pay periods/year (semi-monthly)'
@@ -3831,6 +3903,12 @@ function openAddCategory() {
   editingCatId = null;
   document.getElementById('cat-modal-title').textContent = 'New Category';
   document.getElementById('cat-name').value = '';
+  const nameInputAdd = document.getElementById('cat-name');
+  nameInputAdd.readOnly = false;
+  nameInputAdd.style.opacity = '';
+  nameInputAdd.style.cursor = '';
+  nameInputAdd.title = '';
+  document.getElementById('cat-name-lock-note').style.display = 'none';
   document.getElementById('cat-budget').value = '';
   document.getElementById('cat-type').value = 'manual';
   document.getElementById('cat-parent-wrap').style.display = 'none';
@@ -3848,6 +3926,21 @@ function openEditCategory(id) {
   editingCatId = id;
   document.getElementById('cat-modal-title').textContent = 'Edit Category';
   document.getElementById('cat-name').value = catDef.label;
+  // Lock name field for food category — grocery logic depends on this ID
+  const nameInput = document.getElementById('cat-name');
+  if (catDef.id === 'food' || catDef.id === 'meals_out') {
+    nameInput.readOnly = true;
+    nameInput.style.opacity = '0.6';
+    nameInput.style.cursor = 'not-allowed';
+    nameInput.title = 'This category name cannot be changed — grocery tracking depends on it.';
+    document.getElementById('cat-name-lock-note').style.display = 'block';
+  } else {
+    nameInput.readOnly = false;
+    nameInput.style.opacity = '';
+    nameInput.style.cursor = '';
+    nameInput.title = '';
+    document.getElementById('cat-name-lock-note').style.display = 'none';
+  }
   document.getElementById('cat-budget').value = catDef.budget || '';
   document.getElementById('cat-type').value = catDef.type || 'manual';
   document.getElementById('cat-parent-wrap').style.display = catDef.parentId ? 'block' : 'none';
@@ -4516,6 +4609,13 @@ function toggleScheduledChargePaid(id) {
   data.scheduledCharges[idx].paid = !data.scheduledCharges[idx].paid;
   save(data);
   refreshCurrentView();
+}
+
+function toggleGroceryWarnings() {
+  const data = db();
+  data.groceryWarnings = !data.groceryWarnings;
+  save(data);
+  renderSettings();
 }
 
 function refreshCurrentView() {
