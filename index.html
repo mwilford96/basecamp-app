@@ -160,7 +160,14 @@ select.form-input{appearance:none;-webkit-appearance:none;}
 .week-remain.over{color:var(--danger);}
 .week-spent{font-size:11px;color:var(--muted);}
 
-/* Recipe card */
+.chip-row{display:flex;flex-wrap:wrap;gap:5px;}
+.meal-type-btn{border:0.5px solid var(--border);border-radius:10px;padding:8px 6px;text-align:center;font-size:12px;font-weight:500;cursor:pointer;background:var(--surface);color:var(--muted);}
+.meal-type-btn.active{border-color:var(--food);background:var(--food-l);color:var(--food-d);}
+.meal-type-btn.active-out{border-color:#EF9F27;background:#FAEEDA;color:#854F0B;}
+
+.tonight-chip{background:var(--light);border-radius:8px;padding:3px 9px;font-size:11px;color:var(--text);}
+.tonight-chip-out{background:#FAEEDA;border-radius:8px;padding:3px 9px;font-size:11px;color:#854F0B;}
+
 .recipe-chip{background:var(--light);border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;cursor:pointer;}
 .recipe-chip.selected{background:var(--food-l);border:1.5px solid var(--food);}
 .recipe-name{font-size:13px;font-weight:500;}
@@ -290,6 +297,23 @@ select.form-input{appearance:none;-webkit-appearance:none;}
           <div style="font-size:11px;color:#A32D2D;margin-top:2px;opacity:.8;">Tap to view the list</div>
         </div>
         <i class="ti ti-chevron-right" style="font-size:16px;color:#A32D2D;opacity:.6;"></i>
+      </div>
+
+      <!-- Tonight card -->
+      <div id="db-tonight-card" style="display:none;border-radius:14px;border-top:3px solid var(--food);background:var(--surface);padding:13px 16px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="display:flex;align-items:center;gap:6px;" id="db-tonight-eyebrow">
+            <i class="ti ti-moon" style="font-size:13px;color:var(--food-d);"></i>
+            <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--food-d);">Tonight</span>
+          </div>
+          <button class="link-btn" onclick="switchView('groceries')" style="font-size:11px;">Edit</button>
+        </div>
+        <div id="db-tonight-meal" style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:3px;"></div>
+        <div id="db-tonight-note" style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px;"></div>
+        <div id="db-tonight-chips" class="chip-row"></div>
+        <div id="db-tonight-recipe-link" style="display:none;margin-top:6px;">
+          <button class="link-btn" style="font-size:11px;color:var(--food-d);" id="db-tonight-recipe-btn"><i class="ti ti-book" style="font-size:11px;"></i> View full recipe</button>
+        </div>
       </div>
 
       <!-- Period total -->
@@ -1139,6 +1163,7 @@ function defaultDB() {
     scheduledCharges: [],
     groceryWarnings: false,
     weeklyPlan: {},       // periodKey -> { week: 1|2, selectedRecipes: [ids], groceryLogs: [{store,amount,date}] }
+    mealPlan: {},         // weekKey (YYYY-MM-DD of week's Sunday) -> [{ day, name, type, cook, prepNote, recipeId }]
     groceryLogs: {}       // periodKey -> { w1: [{store,amount,date}], w2: [...] }
   };
 }
@@ -1174,6 +1199,7 @@ function migrateData(data) {
   if (!data.groceryLogs) data.groceryLogs = {};
   if (!data.weeklyPlan) data.weeklyPlan = {};
   if (!data.recipes || !Array.isArray(data.recipes)) data.recipes = defaultDB().recipes;
+  if (!data.mealPlan) data.mealPlan = {};
   if (!data.staples) {
     data.staples = defaultDB().staples;
   } else {
@@ -1894,6 +1920,47 @@ function renderDashboard() {
     todoAlertEl.onclick = () => switchView('todo');
   }
 
+  // Tonight card
+  const tonightCard = document.getElementById('db-tonight-card');
+  const todayMeal = getTodayMeal(data);
+  if (tonightCard) {
+    if (todayMeal) {
+      const isOut = todayMeal.type === 'out';
+      const accentColor = isOut ? '#EF9F27' : 'var(--food)';
+      const textColor = isOut ? '#854F0B' : 'var(--food-d)';
+      const iconClass = isOut ? 'ti-map-pin' : 'ti-moon';
+      const eyebrowText = isOut ? 'Tonight \u2014 eating out' : 'Tonight';
+      tonightCard.style.borderTopColor = accentColor;
+      tonightCard.style.display = 'block';
+      const eyebrow = document.getElementById('db-tonight-eyebrow');
+      if (eyebrow) eyebrow.innerHTML = `<i class="ti ${iconClass}" style="font-size:13px;color:${textColor};"></i><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${textColor};">${eyebrowText}</span>`;
+      const mealEl = document.getElementById('db-tonight-meal');
+      if (mealEl) { mealEl.textContent = todayMeal.name; mealEl.style.color = isOut ? '#633806' : 'var(--text)'; }
+      const noteEl = document.getElementById('db-tonight-note');
+      if (noteEl) { noteEl.textContent = todayMeal.prepNote || ''; noteEl.style.display = todayMeal.prepNote ? 'block' : 'none'; }
+      const chipsEl = document.getElementById('db-tonight-chips');
+      if (chipsEl) {
+        if (isOut) {
+          chipsEl.innerHTML = `<span class="tonight-chip-out">eating out</span>`;
+        } else if (todayMeal.recipeId) {
+          const recipe = data.recipes.find(r => r.id === todayMeal.recipeId);
+          if (recipe && recipe.ingredients) {
+            chipsEl.innerHTML = recipe.ingredients.slice(0,4).map(ing => {
+              const name = typeof ing === 'string' ? ing : ing.name;
+              return `<span class="tonight-chip">${name}</span>`;
+            }).join('');
+          } else chipsEl.innerHTML = '';
+        } else chipsEl.innerHTML = '';
+      }
+      const recipeLink = document.getElementById('db-tonight-recipe-link');
+      const recipeBtn = document.getElementById('db-tonight-recipe-btn');
+      if (recipeLink) recipeLink.style.display = todayMeal.recipeId ? 'block' : 'none';
+      if (recipeBtn && todayMeal.recipeId) recipeBtn.onclick = () => { switchView('groceries'); setTimeout(() => openMealDayDetail(new Date().getDay(), weekKey()), 100); };
+    } else {
+      tonightCard.style.display = 'none';
+    }
+  }
+
   // Period notes
   const notesEl = document.getElementById('db-period-notes');
   if (notesEl) {
@@ -2530,18 +2597,93 @@ function renderGroceryTabContent() {
     html += `</div>`;
 
 
-    // ── Selected recipes ──
-    html += `<div class="card" style="border-top:3px solid #C4956A;"><div class="section-head"><div class="section-head-title" style="color:#7a5a2e;">This Week's Recipes</div><button class="link-btn" onclick="switchGroceryTab('recipes')">Pick</button></div>`;
-    const selected = (plan.selectedRecipes || []).map(id => data.recipes.find(r => r.id === id)).filter(Boolean);
-    if (selected.length === 0) {
-      html += `<div style="font-size:12px;color:var(--muted);">No recipes selected</div>`;
-    } else {
-      html += selected.map(r => {
-        const ingNames = (r.ingredients||[]).slice(0,3).map(i => typeof i === 'string' ? i : (i.name||'')).filter(Boolean).join(', ');
-        return `<div class="recipe-chip selected"><div><div class="recipe-name">${r.name}</div><div style="font-size:11px;color:var(--muted);">${ingNames}</div></div><div class="recipe-cost">${fmt(r.cost)}</div></div>`;
-      }).join('');
+    // ── Tonight card ──
+    const todayMeal = getTodayMeal(data);
+    if (todayMeal) {
+      const isOut = todayMeal.type === 'out';
+      const accentColor = isOut ? '#EF9F27' : 'var(--food)';
+      const textColor = isOut ? '#854F0B' : 'var(--food-d)';
+      const iconClass = isOut ? 'ti-map-pin' : 'ti-moon';
+      const eyebrowText = isOut ? 'Tonight — eating out' : 'Tonight';
+      let tonightChips = '';
+      if (isOut) {
+        tonightChips = `<span class="tonight-chip-out">eating out</span>`;
+      } else if (todayMeal.recipeId) {
+        const tr = data.recipes.find(r => r.id === todayMeal.recipeId);
+        if (tr && tr.ingredients) {
+          tonightChips = tr.ingredients.slice(0,4).map(ing => {
+            const n = typeof ing === 'string' ? ing : ing.name;
+            return `<span class="tonight-chip">${n}</span>`;
+          }).join('');
+        }
+      }
+      const recipeLink = todayMeal.recipeId
+        ? `<button class="link-btn" style="font-size:11px;color:${textColor};margin-top:6px;" onclick="openMealDayDetail(${new Date().getDay()}, '${weekKey()}')"><i class="ti ti-book" style="font-size:11px;"></i> View full recipe</button>`
+        : '';
+      html += `<div style="background:var(--surface);border-radius:14px;border-top:3px solid ${accentColor};padding:12px 14px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="display:flex;align-items:center;gap:6px;"><i class="ti ${iconClass}" style="font-size:13px;color:${textColor};"></i><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${textColor};">${eyebrowText}</span></div>
+          <button class="link-btn" style="font-size:11px;" onclick="openMealEntryModal(${new Date().getDay()}, '${weekKey()}')">Edit</button>
+        </div>
+        <div style="font-size:17px;font-weight:700;color:${isOut ? '#633806' : 'var(--text)'};margin-bottom:3px;">${todayMeal.name}</div>
+        ${todayMeal.prepNote ? `<div style="font-size:12px;color:${textColor};line-height:1.5;margin-bottom:8px;">${todayMeal.prepNote}</div>` : ''}
+        <div class="chip-row">${tonightChips}</div>
+        ${recipeLink}
+      </div>`;
     }
-    html += `<button class="btn btn-secondary" onclick="resetWeek()" style="margin-top:10px;font-size:13px;">Reset Week Selections</button></div>`;
+
+    // ── Meal plan week view ──
+    const wk = weekKey();
+    const sun = currentWeekSunday();
+    const weekPlan = (data.mealPlan || {})[wk] || [];
+    const sunDate = new Date(sun);
+    const weekEndDate = new Date(sun); weekEndDate.setDate(sun.getDate() + 6);
+    const fmtShort = d => { const m = d.getMonth()+1; const day = d.getDate(); return m+'/'+day; };
+    const todayIdx = new Date().getDay();
+    const linkedRecipes = getMealPlanRecipes(data, wk);
+    const estCost = linkedRecipes.reduce((s,r) => s+(r.cost||0), 0);
+    html += `<div class="card" style="border-top:3px solid var(--food-l);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <div class="section-head-title">This week's meals</div>
+        <button class="link-btn" onclick="openMealEntryModal(null, '${wk}')">+ Add</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);text-align:right;margin-bottom:8px;">${fmtShort(sunDate)} – ${fmtShort(weekEndDate)}</div>`;
+    for (let d = 0; d < 7; d++) {
+      const dayDate = new Date(sun); dayDate.setDate(sun.getDate() + d);
+      const dateLabel = fmtShort(dayDate);
+      const meal = weekPlan.find(m => m.day === d) || null;
+      const isToday = d === todayIdx;
+      const todayBorder = isToday ? 'border-left:2.5px solid var(--food);border-radius:0 10px 10px 0;' : 'border-radius:10px;';
+      const cellBg = isToday ? 'background:var(--surface);' : 'background:var(--light);';
+      if (meal) {
+        const isOut = meal.type === 'out';
+        const tagBg = isOut ? '#FAEEDA' : meal.recipeId ? 'var(--food-l)' : 'var(--light)';
+        const tagColor = isOut ? '#854F0B' : meal.recipeId ? 'var(--food-d)' : 'var(--muted)';
+        const tagLabel = isOut ? 'out' : meal.recipeId ? 'recipe' : meal.type === 'leftovers' ? 'leftovers' : 'manual';
+        html += `<div style="display:grid;grid-template-columns:38px 1fr;gap:6px;margin-bottom:4px;align-items:center;">
+          <div style="text-align:right;"><div style="font-size:10px;font-weight:700;color:var(--muted);">${DAY_SHORT[d]}</div><div style="font-size:9px;color:var(--border-dark,#bbb);">${dateLabel}</div></div>
+          <div style="${cellBg}${todayBorder}padding:7px 10px;display:flex;align-items:center;justify-content:space-between;min-height:36px;cursor:pointer;" onclick="openMealDayDetail(${d}, '${wk}')">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:${isOut?'#633806':'var(--text)'};">${meal.name}</div>
+              ${meal.cook || meal.prepNote ? `<div style="font-size:10px;color:var(--muted);margin-top:1px;">${meal.cook ? meal.cook+(meal.prepNote?(' — '+meal.prepNote.substring(0,30)+(meal.prepNote.length>30?'...':'')):'') : meal.prepNote.substring(0,40)}</div>` : ''}
+            </div>
+            <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;background:${tagBg};color:${tagColor};white-space:nowrap;flex-shrink:0;">${tagLabel}</span>
+          </div>
+        </div>`;
+      } else {
+        html += `<div style="display:grid;grid-template-columns:38px 1fr;gap:6px;margin-bottom:4px;align-items:center;">
+          <div style="text-align:right;"><div style="font-size:10px;font-weight:700;color:var(--muted);">${DAY_SHORT[d]}</div><div style="font-size:9px;color:var(--border-dark,#bbb);">${dateLabel}</div></div>
+          <div style="background:var(--light);border-radius:10px;padding:7px 10px;display:flex;align-items:center;justify-content:space-between;min-height:36px;opacity:.65;cursor:pointer;" onclick="openMealEntryModal(${d}, '${wk}')">
+            <span style="font-size:11px;color:var(--muted);font-style:italic;">not planned</span>
+            <i class="ti ti-plus" style="font-size:12px;color:var(--muted);"></i>
+          </div>
+        </div>`;
+      }
+    }
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);">
+      <span style="font-size:10px;color:var(--muted);">${linkedRecipes.length} recipe${linkedRecipes.length!==1?'s':''} linked${estCost>0?' · est. '+fmt(estCost):''}</span>
+      <button class="link-btn" style="font-size:11px;" onclick="switchGroceryTab('list')">Shopping list →</button>
+    </div></div>`;
     // ── Food subscriptions (fixed expenses tagged as food) ──
     const today3 = localDateStr();
     const foodFixed = data.fixedExpenses.filter(f => f.cat === 'food' && (!f.endDate || f.endDate > today3));
@@ -2996,6 +3138,178 @@ function savePeriodNotes(val, pKey) {
   save(data);
 }
 
+// ── MEAL PLAN HELPERS ─────────────────────────────────────────
+function currentWeekSunday() {
+  const d = new Date(); d.setHours(0,0,0,0);
+  d.setDate(d.getDate() - d.getDay()); // back to Sunday
+  return d;
+}
+function weekKey(date) {
+  const d = date || currentWeekSunday();
+  return d.toISOString().slice(0,10);
+}
+function getMealForDay(data, dayIndex, wKey) {
+  // dayIndex: 0=Sun,1=Mon,...,6=Sat
+  const wk = wKey || weekKey();
+  const plan = (data.mealPlan || {})[wk] || [];
+  return plan.find(m => m.day === dayIndex) || null;
+}
+function getTodayMeal(data) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const sun = currentWeekSunday();
+  const dayIndex = today.getDay();
+  return getMealForDay(data, dayIndex, weekKey(sun));
+}
+function saveMealPlanEntry(entry, wKey) {
+  const data = db();
+  if (!data.mealPlan) data.mealPlan = {};
+  const wk = wKey || weekKey();
+  if (!data.mealPlan[wk]) data.mealPlan[wk] = [];
+  const idx = data.mealPlan[wk].findIndex(m => m.day === entry.day);
+  if (idx !== -1) data.mealPlan[wk][idx] = entry;
+  else data.mealPlan[wk].push(entry);
+  save(data);
+  renderGroceryTabContent();
+  renderDashboard();
+}
+function deleteMealPlanEntry(dayIndex, wKey) {
+  const data = db();
+  const wk = wKey || weekKey();
+  if (data.mealPlan && data.mealPlan[wk]) {
+    data.mealPlan[wk] = data.mealPlan[wk].filter(m => m.day !== dayIndex);
+  }
+  save(data);
+  renderGroceryTabContent();
+  renderDashboard();
+}
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DAY_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function getMealPlanRecipes(data, wKey) {
+  const wk = wKey || weekKey();
+  const plan = (data.mealPlan || {})[wk] || [];
+  const recipeIds = [...new Set(plan.filter(m => m.recipeId).map(m => m.recipeId))];
+  return recipeIds.map(id => data.recipes.find(r => r.id === id)).filter(Boolean);
+}
+
+// ── MEAL PLAN MODAL ───────────────────────────────────────────────
+let _mealEntryType = 'cook';
+function selectMealType(type) {
+  _mealEntryType = type;
+  document.querySelectorAll('.meal-type-btn').forEach(btn => {
+    btn.classList.remove('active','active-out');
+    if (btn.dataset.type === type) btn.classList.add(type === 'out' ? 'active-out' : 'active');
+  });
+  const cookWrap = document.getElementById('meal-cook-wrap');
+  const prepWrap = document.getElementById('meal-prep-wrap');
+  if (type === 'out') { if(prepWrap) prepWrap.style.display='none'; }
+  else { if(prepWrap) prepWrap.style.display='block'; }
+}
+function openMealEntryModal(dayIndex, wKey) {
+  const data = db();
+  const wk = wKey || weekKey();
+  const day = dayIndex !== null ? dayIndex : new Date().getDay();
+  document.getElementById('meal-entry-day').value = day;
+  document.getElementById('meal-entry-wkey').value = wk;
+  document.getElementById('meal-entry-title').textContent = dayIndex !== null ? DAY_NAMES[day] : 'Plan a meal';
+  const existing = getMealForDay(data, day, wk);
+  document.getElementById('meal-entry-name').value = existing ? existing.name : '';
+  document.getElementById('meal-entry-prepnote').value = existing ? (existing.prepNote||'') : '';
+  _mealEntryType = existing ? (existing.type||'cook') : 'cook';
+  selectMealType(_mealEntryType);
+  // Cook dropdown
+  const cookSel = document.getElementById('meal-entry-cook');
+  const assignees = data.assignees || ['Chris','Maddie'];
+  cookSel.innerHTML = `<option value="">Anyone</option>` + assignees.map(a => `<option value="${a}" ${existing&&existing.cook===a?'selected':''}>${a}</option>`).join('');
+  if (existing && existing.cook) cookSel.value = existing.cook;
+  // Recipe dropdown
+  const recSel = document.getElementById('meal-entry-recipe');
+  recSel.innerHTML = `<option value="">No recipe linked</option>` + (data.recipes||[]).map(r => `<option value="${r.id}" ${existing&&existing.recipeId===r.id?'selected':''}>${r.name}</option>`).join('');
+  if (existing && existing.recipeId) recSel.value = existing.recipeId;
+  document.getElementById('meal-entry-delete-btn').style.display = existing ? 'block' : 'none';
+  openModal('modal-meal-entry');
+}
+function saveMealEntry() {
+  const day = parseInt(document.getElementById('meal-entry-day').value);
+  const wk = document.getElementById('meal-entry-wkey').value;
+  const name = document.getElementById('meal-entry-name').value.trim();
+  if (!name) { toast('Please enter a meal name.'); return; }
+  const cook = document.getElementById('meal-entry-cook').value;
+  const prepNote = document.getElementById('meal-entry-prepnote').value.trim();
+  const recipeId = document.getElementById('meal-entry-recipe').value || null;
+  // Auto-fill name from recipe if blank or if recipe changed
+  const data = db();
+  let finalName = name;
+  if (recipeId && !name) {
+    const recipe = data.recipes.find(r => r.id === recipeId);
+    if (recipe) finalName = recipe.name;
+  }
+  const entry = { day, name: finalName, type: _mealEntryType, cook, prepNote, recipeId };
+  saveMealPlanEntry(entry, wk);
+  closeModal('modal-meal-entry');
+  toast('Meal plan updated!');
+}
+function deleteMealEntry() {
+  const day = parseInt(document.getElementById('meal-entry-day').value);
+  const wk = document.getElementById('meal-entry-wkey').value;
+  deleteMealPlanEntry(day, wk);
+  closeModal('modal-meal-entry');
+  toast('Meal removed.');
+}
+function openMealDayDetail(dayIndex, wKey) {
+  const data = db();
+  const wk = wKey || weekKey();
+  const meal = getMealForDay(data, dayIndex, wk);
+  if (!meal) { openMealEntryModal(dayIndex, wk); return; }
+  document.getElementById('meal-detail-title').textContent = DAY_NAMES[dayIndex];
+  const editBtn = document.getElementById('meal-detail-edit-btn');
+  if (editBtn) editBtn.onclick = () => { closeModal('modal-meal-detail'); openMealEntryModal(dayIndex, wk); };
+  const isOut = meal.type === 'out';
+  const recipe = meal.recipeId ? data.recipes.find(r => r.id === meal.recipeId) : null;
+  const tagBg = isOut ? '#FAEEDA' : recipe ? 'var(--food-l)' : 'var(--light)';
+  const tagColor = isOut ? '#854F0B' : recipe ? 'var(--food-d)' : 'var(--muted)';
+  const tagLabel = isOut ? 'eating out' : recipe ? 'recipe' : meal.type === 'leftovers' ? 'leftovers' : 'home cook';
+  let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+    <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:${tagBg};color:${tagColor};">${tagLabel}</span>
+    ${meal.cook ? `<span style="font-size:12px;color:var(--muted);">${meal.cook} cooking</span>` : ''}
+  </div>
+  <div style="font-size:20px;font-weight:700;color:${isOut?'#633806':'var(--text)'};margin-bottom:${meal.prepNote?'10px':'14px'};">${meal.name}</div>`;
+  if (meal.prepNote) {
+    html += `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Prep note</div>
+    <div style="background:var(--light);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);line-height:1.6;margin-bottom:14px;">${meal.prepNote}</div>`;
+  }
+  if (recipe) {
+    if (recipe.ingredients && recipe.ingredients.length > 0) {
+      html += `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Ingredients</div>`;
+      recipe.ingredients.forEach(ing => {
+        const name = typeof ing === 'string' ? ing : ing.name;
+        const price = typeof ing === 'object' && ing.price ? fmt(ing.price) : '';
+        html += `<div style="display:flex;justify-content:space-between;background:var(--surface);border-radius:8px;padding:6px 10px;margin-bottom:4px;font-size:13px;"><span>${name}</span>${price?`<span style="color:var(--muted);">${price}</span>`:''}</div>`;
+      });
+    }
+    const instructions = recipe.instructions || (recipe.steps && recipe.steps.length > 0 ? recipe.steps.map((s,i) => (typeof s==='string'?s:(s.text||s.content||''))).filter(Boolean).join('\n\n') : '');
+    if (instructions) {
+      html += `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;">Steps</div>
+      <div style="background:var(--surface);border-radius:10px;padding:10px 12px;">`;
+      const steps = instructions.split(/\n+/).filter(Boolean);
+      steps.forEach((step, i) => {
+        html += `<div style="display:flex;gap:8px;margin-bottom:${i<steps.length-1?'10px':'0'};">
+          <div style="width:20px;height:20px;border-radius:50%;background:#1a2e1b;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">${i+1}</div>
+          <div style="font-size:12px;color:var(--text);line-height:1.5;">${step}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    if (recipe.notes) {
+      html += `<div style="margin-top:10px;font-size:12px;color:var(--muted);font-style:italic;">${recipe.notes}</div>`;
+    }
+  } else if (!isOut) {
+    html += `<div style="background:var(--light);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted);">No recipe linked. <button class="link-btn" style="font-size:12px;" onclick="closeModal('modal-meal-detail');openMealEntryModal(${dayIndex},'${wk}')">Link a recipe \u2192</button></div>`;
+  }
+  document.getElementById('meal-detail-content').innerHTML = html;
+  openModal('modal-meal-detail');
+}
+
+// ─── RESET WEEK ───────────────────────────────────────────────────
 function saveWeekNotes(key, val) {
   const data = db();
   const pKey = periodKey(currentPeriodStart());
@@ -3003,8 +3317,6 @@ function saveWeekNotes(key, val) {
   data.weeklyPlan[pKey][key] = val;
   save(data);
 }
-
-// ─── RESET WEEK ───────────────────────────────────────────────────
 function resetWeek() {
   if (!confirm('Clear this week\'s recipe selections?')) return;
   const data = db();
@@ -4862,6 +5174,58 @@ async function checkForUpdate() {
   }
 })();
 </script>
+
+  <!-- MEAL PLAN ENTRY MODAL -->
+  <div class="modal-overlay" id="modal-meal-entry" onclick="closeModalOutside(event,'modal-meal-entry')">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="meal-entry-title">Plan a meal</div>
+      <input type="hidden" id="meal-entry-day">
+      <input type="hidden" id="meal-entry-wkey">
+      <div class="form-field">
+        <label class="form-label">What's for dinner</label>
+        <input class="form-input" id="meal-entry-name" placeholder="e.g. Chicken stir fry">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Type</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;" id="meal-type-btns">
+          <div class="meal-type-btn active" data-type="cook" onclick="selectMealType('cook')">Home cook</div>
+          <div class="meal-type-btn" data-type="leftovers" onclick="selectMealType('leftovers')">Leftovers</div>
+          <div class="meal-type-btn" data-type="out" onclick="selectMealType('out')">Eating out</div>
+        </div>
+      </div>
+      <div class="form-field" id="meal-cook-wrap">
+        <label class="form-label">Who's cooking</label>
+        <select class="form-input" id="meal-entry-cook"></select>
+      </div>
+      <div class="form-field" id="meal-prep-wrap">
+        <label class="form-label">Prep note <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;">— shown to whoever starts dinner</span></label>
+        <textarea class="form-input" id="meal-entry-prepnote" rows="2" placeholder="e.g. Rice cooker on first. Sauce in fridge door."></textarea>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Link a recipe <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;">— optional</span></label>
+        <select class="form-input" id="meal-entry-recipe">
+          <option value="">No recipe linked</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="saveMealEntry()">Save</button>
+      <button class="btn btn-danger" id="meal-entry-delete-btn" style="display:none;" onclick="deleteMealEntry()">Remove</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-meal-entry')">Cancel</button>
+    </div>
+  </div>
+
+  <!-- MEAL DAY DETAIL MODAL -->
+  <div class="modal-overlay" id="modal-meal-detail" onclick="closeModalOutside(event,'modal-meal-detail')">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="modal-title" id="meal-detail-title" style="margin-bottom:0;"></div>
+        <button class="link-btn" id="meal-detail-edit-btn">Edit</button>
+      </div>
+      <div id="meal-detail-content"></div>
+      <button class="btn btn-secondary" onclick="closeModal('modal-meal-detail')" style="margin-top:8px;">Close</button>
+    </div>
+  </div>
 </body>
 </html>  <!-- RECIPE MODAL -->
   <div class="modal-overlay" id="modal-recipe" onclick="closeModalOutside(event,'modal-recipe')">
