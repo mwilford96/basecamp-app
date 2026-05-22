@@ -3250,10 +3250,13 @@ function saveMealEntry() {
   const entry = { day, name: finalName, type: _mealEntryType, cook, prepNote, recipeId };
   saveMealPlanEntry(entry, wk);
   closeModal('modal-meal-entry');
-  const saved = db();
-  const keys = Object.keys(saved.mealPlan || {});
+  // DEBUG: read directly from localStorage
+  const raw = localStorage.getItem('mb_db');
+  const parsed = raw ? JSON.parse(raw) : {};
+  const keys = Object.keys(parsed.mealPlan || {});
   const renderKey = weekKey();
-  toast('key saved: ' + wk + ' | render key: ' + renderKey + ' | all keys: ' + (keys.join(',') || 'none'));
+  const dayEntry = (parsed.mealPlan || {})[wk] || [];
+  toast('wk:' + wk + ' rk:' + renderKey + ' keys:' + (keys.join(',') || 'none') + ' entries:' + dayEntry.length);
 }
 function deleteMealEntry() {
   const day = parseInt(document.getElementById('meal-entry-day').value);
