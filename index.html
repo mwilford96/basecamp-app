@@ -1199,7 +1199,7 @@ function migrateData(data) {
   if (!data.groceryLogs) data.groceryLogs = {};
   if (!data.weeklyPlan) data.weeklyPlan = {};
   if (!data.recipes || !Array.isArray(data.recipes)) data.recipes = defaultDB().recipes;
-  if (!data.mealPlan) data.mealPlan = {};
+  if (!data.mealPlan || typeof data.mealPlan !== 'object' || Array.isArray(data.mealPlan)) data.mealPlan = {};
   if (!data.staples) {
     data.staples = defaultDB().staples;
   } else {
@@ -3165,24 +3165,32 @@ function getTodayMeal(data) {
   return getMealForDay(data, dayIndex, weekKey(sun));
 }
 function saveMealPlanEntry(entry, wKey) {
-  const data = db();
+  // Read fresh from localStorage directly to avoid stale in-memory copy
+  const raw = localStorage.getItem('mb_db');
+  const data = raw ? JSON.parse(raw) : db();
   if (!data.mealPlan) data.mealPlan = {};
   const wk = wKey || weekKey();
   if (!data.mealPlan[wk]) data.mealPlan[wk] = [];
   const idx = data.mealPlan[wk].findIndex(m => m.day === entry.day);
   if (idx !== -1) data.mealPlan[wk][idx] = entry;
   else data.mealPlan[wk].push(entry);
-  save(data);
+  data.lastSaved = Date.now();
+  // Write directly — skip migrateData to prevent mealPlan being touched
+  localStorage.setItem('mb_db', JSON.stringify(data));
+  cloudSave(data);
   renderGroceries();
   renderDashboard();
 }
 function deleteMealPlanEntry(dayIndex, wKey) {
-  const data = db();
+  const raw = localStorage.getItem('mb_db');
+  const data = raw ? JSON.parse(raw) : db();
   const wk = wKey || weekKey();
   if (data.mealPlan && data.mealPlan[wk]) {
     data.mealPlan[wk] = data.mealPlan[wk].filter(m => m.day !== dayIndex);
   }
-  save(data);
+  data.lastSaved = Date.now();
+  localStorage.setItem('mb_db', JSON.stringify(data));
+  cloudSave(data);
   renderGroceries();
   renderDashboard();
 }
@@ -3250,13 +3258,7 @@ function saveMealEntry() {
   const entry = { day, name: finalName, type: _mealEntryType, cook, prepNote, recipeId };
   saveMealPlanEntry(entry, wk);
   closeModal('modal-meal-entry');
-  // DEBUG: read directly from localStorage
-  const raw = localStorage.getItem('mb_db');
-  const parsed = raw ? JSON.parse(raw) : {};
-  const keys = Object.keys(parsed.mealPlan || {});
-  const renderKey = weekKey();
-  const dayEntry = (parsed.mealPlan || {})[wk] || [];
-  toast('wk:' + wk + ' rk:' + renderKey + ' keys:' + (keys.join(',') || 'none') + ' entries:' + dayEntry.length);
+  toast('Meal plan updated!');
 }
 function deleteMealEntry() {
   const day = parseInt(document.getElementById('meal-entry-day').value);
