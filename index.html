@@ -3250,7 +3250,10 @@ function saveMealEntry() {
   const entry = { day, name: finalName, type: _mealEntryType, cook, prepNote, recipeId };
   saveMealPlanEntry(entry, wk);
   closeModal('modal-meal-entry');
-  toast('Meal plan updated!');
+  const saved = db();
+  const keys = Object.keys(saved.mealPlan || {});
+  const renderKey = weekKey();
+  toast('key saved: ' + wk + ' | render key: ' + renderKey + ' | all keys: ' + (keys.join(',') || 'none'));
 }
 function deleteMealEntry() {
   const day = parseInt(document.getElementById('meal-entry-day').value);
