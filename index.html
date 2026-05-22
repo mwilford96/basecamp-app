@@ -3146,7 +3146,11 @@ function currentWeekSunday() {
 }
 function weekKey(date) {
   const d = date || currentWeekSunday();
-  return d.toISOString().slice(0,10);
+  // Use local date components to avoid UTC offset shifting the date
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+day;
 }
 function getMealForDay(data, dayIndex, wKey) {
   // dayIndex: 0=Sun,1=Mon,...,6=Sat
@@ -3169,7 +3173,7 @@ function saveMealPlanEntry(entry, wKey) {
   if (idx !== -1) data.mealPlan[wk][idx] = entry;
   else data.mealPlan[wk].push(entry);
   save(data);
-  renderGroceryTabContent();
+  renderGroceries();
   renderDashboard();
 }
 function deleteMealPlanEntry(dayIndex, wKey) {
@@ -3179,7 +3183,7 @@ function deleteMealPlanEntry(dayIndex, wKey) {
     data.mealPlan[wk] = data.mealPlan[wk].filter(m => m.day !== dayIndex);
   }
   save(data);
-  renderGroceryTabContent();
+  renderGroceries();
   renderDashboard();
 }
 const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
