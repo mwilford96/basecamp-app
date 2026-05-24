@@ -2634,18 +2634,24 @@ function renderGroceryTabContent() {
     }
 
     // ── Meal plan week view ──
-    const wk = weekKey();
+    const mealWeekOffset = window._mealWeekOffset || 0;
     const sun = currentWeekSunday();
+    const viewSun = new Date(sun); viewSun.setDate(sun.getDate() + mealWeekOffset * 7);
+    const wk = weekKey(viewSun);
     const weekPlan = (data.mealPlan || {})[wk] || [];
-    const sunDate = new Date(sun);
-    const weekEndDate = new Date(sun); weekEndDate.setDate(sun.getDate() + 6);
+    const sunDate = new Date(viewSun);
+    const weekEndDate = new Date(viewSun); weekEndDate.setDate(viewSun.getDate() + 6);
     const fmtShort = d => { const m = d.getMonth()+1; const day = d.getDate(); return m+'/'+day; };
-    const todayIdx = new Date().getDay();
+    const todayIdx = mealWeekOffset === 0 ? new Date().getDay() : -1;
     const linkedRecipes = getMealPlanRecipes(data, wk);
     const estCost = linkedRecipes.reduce((s,r) => s+(r.cost||0), 0);
     html += `<div class="card" style="border-top:3px solid var(--food-l);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <div class="section-head-title">This week's meals</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button class="link-btn" style="font-size:16px;padding:0 4px;" onclick="window._mealWeekOffset=(window._mealWeekOffset||0)-1;renderGroceryTabContent();">&#8249;</button>
+          <div class="section-head-title">${mealWeekOffset === 0 ? 'This week' : mealWeekOffset === 1 ? 'Next week' : mealWeekOffset === -1 ? 'Last week' : (mealWeekOffset > 0 ? '+'+mealWeekOffset+' weeks' : mealWeekOffset+' weeks')}</div>
+          <button class="link-btn" style="font-size:16px;padding:0 4px;" onclick="window._mealWeekOffset=(window._mealWeekOffset||0)+1;renderGroceryTabContent();">&#8250;</button>
+        </div>
         <button class="link-btn" onclick="openMealEntryModal(null, '${wk}')">+ Add</button>
       </div>
       <div style="font-size:10px;color:var(--muted);text-align:right;margin-bottom:8px;">${fmtShort(sunDate)} – ${fmtShort(weekEndDate)}</div>`;
