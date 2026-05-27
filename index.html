@@ -1816,6 +1816,7 @@ function getFoodTransactionsForPeriod(data, pKey) {
 
 // ─── DASHBOARD ────────────────────────────────────────────────────
 function renderDashboard() {
+  generateScheduledCharges();
   const data = db();
   const pStart = currentPeriodStart();
   const pKey = periodKey(pStart);
@@ -2043,6 +2044,7 @@ function txnRow(t, data, showEdit = true) {
 let budgetViewPeriodIdx = 0; // 0 = current, 1 = next, 2 = +2
 
 function renderBudget() {
+  generateScheduledCharges();
   const data = db();
   const isMonthly = data.periodMode === 'monthly';
   const today = new Date();
@@ -2122,7 +2124,13 @@ function renderBudget() {
     const pct = b > 0 ? Math.min((s/b)*100,100) : 0;
     const todayStr = localDateStr();
     // Scheduled charges for this category (from charge engine)
-    const charges = (data.scheduledCharges || []).filter(c => c.periodKey === pKey && (c.cat || 'fix') === key);
+    // Include charges where cat matches directly OR where cat is a subcategory of this category
+    const charges = (data.scheduledCharges || []).filter(c => {
+      const chargeCat = c.cat || 'fix';
+      if (chargeCat === key) return true;
+      const chargeCatDef = getCats()[chargeCat];
+      return chargeCatDef && chargeCatDef.parentId === key;
+    }).filter(c => c.periodKey === pKey);
     const catCharges = charges.map(c => {
       const isUpcoming = c.chargeDate && c.chargeDate > todayStr;
       return {...c, _isFixed: true, upcoming: isUpcoming, renewalDate: c.chargeDate, date: c.chargeDate};
