@@ -1512,6 +1512,10 @@ function openEditTxn(id) {
   const data = db();
   const t = data.transactions.find(x => x.id === id);
   if (!t) return;
+  // Track if we're editing from history detail so we can restore it after save
+  const hdModal = document.getElementById('modal-history-detail');
+  document.getElementById('modal-add').dataset.fromHistoryPkey = 
+    (hdModal && hdModal.classList.contains('open')) ? (hdModal.dataset.pkey || '') : '';
   document.getElementById('add-modal-title').textContent = 'Edit Transaction';
   document.getElementById('edit-txn-id').value = id;
   document.getElementById('txn-name').value = t.name;
@@ -1557,6 +1561,12 @@ function saveTxn() {
   }
   save(data);
   closeModal('modal-add');
+  // If this edit came from history detail, re-open that modal with fresh data
+  const fromHistoryPkey = document.getElementById('modal-add').dataset.fromHistoryPkey;
+  if (fromHistoryPkey) {
+    document.getElementById('modal-add').dataset.fromHistoryPkey = '';
+    setTimeout(() => showHistoryDetail(fromHistoryPkey), 50);
+  }
   refreshCurrentView();
 }
 
@@ -1749,6 +1759,12 @@ function toggleTxnPaid(id) {
   if (idx === -1) return;
   data.transactions[idx].paid = !data.transactions[idx].paid;
   save(data);
+  // If history detail modal is open, refresh it
+  const hdModal = document.getElementById('modal-history-detail');
+  if (hdModal && hdModal.classList.contains('open')) {
+    const pKey = hdModal.dataset.pkey;
+    if (pKey) showHistoryDetail(pKey);
+  }
   refreshCurrentView();
   renderDashboard();
 }
@@ -1760,6 +1776,11 @@ function toggleFixedPaid(id) {
   if (scIdx !== -1) {
     data.scheduledCharges[scIdx].paid = !data.scheduledCharges[scIdx].paid;
     save(data);
+    const hdModal = document.getElementById('modal-history-detail');
+    if (hdModal && hdModal.classList.contains('open')) {
+      const pKey = hdModal.dataset.pkey;
+      if (pKey) showHistoryDetail(pKey);
+    }
     refreshCurrentView();
     renderDashboard();
     return;
@@ -3589,6 +3610,7 @@ function showHistoryDetail(pKey) {
   const allItems = [...txns, ...fixed.map(c => ({...c, cat: c.cat||'fix', paid: c.paid||false, _isFixed: true, date: c.chargeDate}))];
 
   document.getElementById('hd-title').textContent = periodLabel(pStart);
+  document.getElementById('modal-history-detail').dataset.pkey = pKey;
 
   const spent = getSpendForPeriod(data, pKey);
   const total = Object.values(spent).reduce((s,v)=>s+v,0);
