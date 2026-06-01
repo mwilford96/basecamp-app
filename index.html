@@ -44,15 +44,21 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;}
 .view.active{display:block;}
 
 /* Nav */
-.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#F2EDE6;border-top:0.5px solid #ddd8d0;display:flex;z-index:100;padding-top:8px;padding-bottom:max(env(safe-area-inset-bottom), 8px);}
-.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 8px;font-size:10px;font-weight:500;color:var(--muted);transition:color .2s;}
-.nav-btn.active{color:var(--food);}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#F2EDE6;border-top:0.5px solid #c8c0b4;display:flex;z-index:100;padding-top:8px;padding-bottom:max(env(safe-area-inset-bottom), 8px);}
+.nav::before{content:'';position:absolute;top:0;left:14px;right:14px;height:2px;background:#1a2e1b;border-radius:0 0 2px 2px;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px 8px;font-size:10px;font-weight:500;color:var(--muted);transition:color .2s;position:relative;}
+.nav-btn::before{content:'';display:block;width:4px;height:4px;border-radius:50%;background:transparent;margin:0 auto 1px;transition:background .2s;}
+.nav-btn.active::before{background:#C17B5E;}
+.nav-btn.active{color:#1a2e1b;}
 .nav-btn i{font-size:20px;}
 
 /* Header */
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
 .page-title{font-family:'DM Serif Display',serif;font-size:22px;line-height:1.1;}
 .page-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+.page-title-block{border-left:2.5px solid #1a2e1b;padding-left:9px;}
+.page-eyebrow{font-size:9px;font-weight:700;color:#5a7a4e;text-transform:uppercase;letter-spacing:.13em;margin-bottom:2px;font-family:'DM Sans',sans-serif;}
+.page-header-wm{position:absolute;right:0;top:0;opacity:.09;pointer-events:none;}
 
 /* Cards */
 .card{background:var(--surface);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:12px;}
@@ -218,7 +224,8 @@ select.form-input{appearance:none;-webkit-appearance:none;}
   .nav{position:relative;bottom:auto;left:auto;transform:none;width:190px;max-width:190px;flex-shrink:0;flex-direction:column;border-top:none;border-right:1px solid var(--border);padding:24px 12px;height:100vh;justify-content:flex-start;gap:4px;overflow-y:auto;}
   .nav::before{content:'Madison';font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);padding:0 8px 20px;display:block;border-bottom:1px solid var(--border);margin-bottom:12px;width:100%;}
   .nav-btn{flex-direction:row;justify-content:flex-start;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;width:100%;}
-  .nav-btn.active{background:var(--food-l);color:var(--food-d);}
+  .nav-btn::before{display:none;}
+  .nav-btn.active{background:#EFF5ED;color:#1a2e1b;}
   .nav-btn i{font-size:18px;}
   .views{flex:1;overflow-y:auto;padding-bottom:0;}
   .view{max-width:860px;margin:0 auto;padding:28px 32px;}
@@ -275,7 +282,8 @@ select.form-input{appearance:none;-webkit-appearance:none;}
   <div class="views" id="views">
     <!-- DASHBOARD -->
     <div class="view active" id="view-dashboard">
-      <div class="page-header">
+      <div class="page-header" style="position:relative;overflow:hidden;">
+        <svg class="page-header-wm" width="110" height="70" viewBox="0 0 110 70" aria-hidden="true"><polygon points="80,3 44,62 116,62" fill="#1a2e1b"/><polygon points="34,16 6,62 64,62" fill="#1a2e1b" opacity=".55"/></svg>
         <div style="flex:1;">
           <div class="page-title">🌲 Base Camp 🏕️</div>
           <div style="font-size:13px;font-weight:500;color:var(--muted);margin-top:1px;" id="home-names">Chris + Maddie</div>
@@ -285,7 +293,6 @@ select.form-input{appearance:none;-webkit-appearance:none;}
           </div>
           <div id="sync-indicator" style="font-size:11px;font-weight:600;margin-top:2px;min-height:14px;"></div>
         </div>
-        <button class="period-chip active" onclick="openAddTxn()">+ Add</button>
       </div>
 
       <div class="db-two-col" id="db-two-col">
@@ -361,8 +368,10 @@ select.form-input{appearance:none;-webkit-appearance:none;}
 
     <!-- BUDGET -->
     <div class="view" id="view-budget">
-      <div class="page-header">
-        <div>
+      <div class="page-header" style="position:relative;overflow:hidden;">
+        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <div class="page-title-block">
+          <div class="page-eyebrow">Field Ledger</div>
           <div class="page-title">Budget</div>
           <div class="page-sub" id="budget-period-label"></div>
         </div>
@@ -382,9 +391,12 @@ select.form-input{appearance:none;-webkit-appearance:none;}
 
     <!-- GROCERIES -->
     <div class="view" id="view-groceries">
-      <div class="page-header">
-        <div><div class="page-title">Groceries</div></div>
-        <button class="link-btn" onclick="openModal('modal-meals-out')">+ Meals Out</button>
+      <div class="page-header" style="position:relative;overflow:hidden;">
+        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <div class="page-title-block">
+          <div class="page-eyebrow">Mess Hall</div>
+          <div class="page-title">Grocery Plan</div>
+        </div>
       </div>
 
       <div class="grocery-budget-bar" id="grocery-budget-bar"></div>
@@ -401,9 +413,12 @@ select.form-input{appearance:none;-webkit-appearance:none;}
 
     <!-- TO-DO -->
     <div class="view" id="view-todo">
-      <div class="page-header">
-        <div><div class="page-title">To-Do</div></div>
-        <button class="link-btn" onclick="openAddTask()">+ Add Task</button>
+      <div class="page-header" style="position:relative;overflow:hidden;">
+        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <div class="page-title-block">
+          <div class="page-eyebrow">Camp Duties</div>
+          <div class="page-title">To-Do List</div>
+        </div>
       </div>
 
       <!-- Tab and sort options -->
@@ -430,16 +445,24 @@ select.form-input{appearance:none;-webkit-appearance:none;}
 
     <!-- HISTORY -->
     <div class="view" id="view-history">
-      <div class="page-header">
-        <div><div class="page-title">History</div></div>
+      <div class="page-header" style="position:relative;overflow:hidden;">
+        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <div class="page-title-block">
+          <div class="page-eyebrow">Trail Log</div>
+          <div class="page-title">History</div>
+        </div>
       </div>
       <div class="card" id="history-content"></div>
     </div>
 
     <!-- SETTINGS -->
     <div class="view" id="view-settings">
-      <div class="page-header">
-        <div><div class="page-title">Settings</div></div>
+      <div class="page-header" style="position:relative;overflow:hidden;">
+        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <div class="page-title-block">
+          <div class="page-eyebrow">Camp HQ</div>
+          <div class="page-title">Settings</div>
+        </div>
       </div>
       <div id="settings-content"></div>
     </div>
@@ -448,22 +471,22 @@ select.form-input{appearance:none;-webkit-appearance:none;}
   <!-- NAV -->
   <nav class="nav">
     <button class="nav-btn active" id="nav-dashboard" onclick="switchView('dashboard')">
-      <i class="ti ti-home"></i><span>Home</span>
+      <i class="ti ti-home"></i><span>Home Base</span>
     </button>
     <button class="nav-btn" id="nav-budget" onclick="switchView('budget')">
-      <i class="ti ti-wallet"></i><span>Budget</span>
+      <i class="ti ti-wallet"></i><span>Field Ledger</span>
     </button>
     <button class="nav-btn" id="nav-groceries" onclick="switchView('groceries')">
-      <i class="ti ti-shopping-cart"></i><span>Groceries</span>
-    </button>
-    <button class="nav-btn" id="nav-history" onclick="switchView('history')">
-      <i class="ti ti-chart-bar"></i><span>History</span>
+      <i class="ti ti-tools-kitchen-2"></i><span>Mess Hall</span>
     </button>
     <button class="nav-btn" id="nav-todo" onclick="switchView('todo')">
-      <i class="ti ti-checkbox"></i><span>To-Do</span>
+      <i class="ti ti-checkbox"></i><span>Camp Duties</span>
+    </button>
+    <button class="nav-btn" id="nav-history" onclick="switchView('history')">
+      <i class="ti ti-chart-bar"></i><span>Trail Log</span>
     </button>
     <button class="nav-btn" id="nav-settings" onclick="switchView('settings')">
-      <i class="ti ti-settings"></i><span>Settings</span>
+      <i class="ti ti-settings"></i><span>Camp HQ</span>
     </button>
   </nav>
 
@@ -569,6 +592,57 @@ select.form-input{appearance:none;-webkit-appearance:none;}
       <button class="btn btn-primary" onclick="saveFixed()">Save</button>
       <button class="btn btn-danger" id="delete-fixed-btn" style="display:none;" onclick="deleteFixed()">Delete</button>
       <button class="btn btn-secondary" onclick="closeModal('modal-fixed')">Cancel</button>
+    </div>
+  </div>
+
+  <!-- EDIT CHARGE MODAL -->
+  <div class="modal-overlay" id="modal-edit-charge" onclick="closeModalOutside(event,'modal-edit-charge')">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="edit-charge-title">Edit charge</div>
+      <div id="edit-charge-sub" style="font-size:11px;color:var(--muted);margin-bottom:16px;"></div>
+      <input type="hidden" id="edit-charge-id">
+      <input type="hidden" id="edit-charge-fe-id">
+      <input type="hidden" id="edit-charge-date">
+      <div class="form-field">
+        <label class="form-label">Name</label>
+        <input class="form-input" id="edit-charge-name" placeholder="e.g. Netflix">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Amount ($)</label>
+        <input class="form-input" id="edit-charge-amount" type="number" step="0.01" placeholder="0.00" inputmode="decimal">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Category</label>
+        <input class="form-input" id="edit-charge-cat-display" disabled style="background:var(--light);color:var(--muted);cursor:not-allowed;">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">To change category, edit in <button class="link-btn" style="font-size:11px;display:inline;" onclick="closeModal('modal-edit-charge');switchView('budget');setTimeout(()=>setBudgetSubview('scheduled'),80);">Scheduled Payments →</button></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#5a5a5a;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Apply changes to</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;" id="edit-charge-scope">
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border);cursor:pointer;" id="scope-opt-0">
+          <input type="radio" name="edit-charge-scope" value="single" style="margin-top:2px;accent-color:#1a2e1b;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#1a1a1a;" id="scope-label-single">Just this charge</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Only this occurrence is updated</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border);cursor:pointer;" id="scope-opt-1">
+          <input type="radio" name="edit-charge-scope" value="this_and_forward" checked style="margin-top:2px;accent-color:#1a2e1b;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#1a1a1a;" id="scope-label-forward">This charge + all future ones</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">This occurrence and every renewal after are updated</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border);cursor:pointer;" id="scope-opt-2">
+          <input type="radio" name="edit-charge-scope" value="future_only" style="margin-top:2px;accent-color:#1a2e1b;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#1a1a1a;">Future charges only</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;" id="scope-desc-future">This charge stays as-is, next renewal onward updated</div>
+          </div>
+        </label>
+      </div>
+      <button class="btn btn-primary" onclick="saveEditCharge()">Save changes</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-charge')">Cancel</button>
     </div>
   </div>
 
@@ -1793,6 +1867,100 @@ function toggleFixedPaid(id) {
   renderDashboard();
 }
 
+function openEditCharge(id) {
+  const data = db();
+  const charge = (data.scheduledCharges || []).find(c => c.id === id);
+  if (!charge) return;
+  const fe = (data.fixedExpenses || []).find(f => f.id === charge.fixedExpenseId);
+  const cats = getCats();
+  const catDef = cats[charge.cat] || cats['fix'];
+  const catLabel = catDef ? catDef.label : (charge.cat || 'Fixed Expenses');
+  const todayStr = localDateStr();
+  const chargeDate = charge.chargeDate || '';
+  const isPast = chargeDate && chargeDate <= todayStr;
+
+  document.getElementById('edit-charge-id').value = id;
+  document.getElementById('edit-charge-fe-id').value = charge.fixedExpenseId || '';
+  document.getElementById('edit-charge-date').value = chargeDate;
+  document.getElementById('edit-charge-name').value = charge.name || '';
+  document.getElementById('edit-charge-amount').value = charge.amount || '';
+  document.getElementById('edit-charge-cat-display').value = catLabel;
+  document.getElementById('edit-charge-title').textContent = 'Edit charge';
+  document.getElementById('edit-charge-sub').textContent = (charge.name || '') + (chargeDate ? ' · renewed ' + fmtDate(chargeDate) : '');
+
+  // Update scope option labels with actual date
+  const dateLabel = chargeDate ? fmtDate(chargeDate) : 'this charge';
+  document.getElementById('scope-label-single').textContent = 'Just this charge (' + dateLabel + ')';
+  document.getElementById('scope-label-forward').textContent = 'This charge + all future ones';
+  document.getElementById('scope-desc-future').textContent = dateLabel + ' stays as-is, next renewal onward updated';
+
+  // Default to "this + forward" for past charges, "future only" if upcoming
+  const radios = document.querySelectorAll('input[name="edit-charge-scope"]');
+  radios.forEach(r => { r.checked = false; });
+  if (!isPast) {
+    // Upcoming charge — default to future_only since it hasn't fired yet
+    document.querySelector('input[name="edit-charge-scope"][value="future_only"]').checked = true;
+  } else {
+    document.querySelector('input[name="edit-charge-scope"][value="this_and_forward"]').checked = true;
+  }
+
+  openModal('modal-edit-charge');
+}
+
+function saveEditCharge() {
+  const data = db();
+  const id = document.getElementById('edit-charge-id').value;
+  const feId = document.getElementById('edit-charge-fe-id').value;
+  const name = document.getElementById('edit-charge-name').value.trim();
+  const amount = parseFloat(document.getElementById('edit-charge-amount').value);
+  const chargeDate = document.getElementById('edit-charge-date').value;
+  const scope = document.querySelector('input[name="edit-charge-scope"]:checked');
+
+  if (!name || isNaN(amount) || amount <= 0) { toast('Please enter a valid name and amount.'); return; }
+  if (!scope) { toast('Please select which charges to update.'); return; }
+
+  const todayStr = localDateStr();
+  const scopeVal = scope.value;
+
+  // "single" or "this_and_forward": update this specific scheduledCharge record
+  if (scopeVal === 'single' || scopeVal === 'this_and_forward') {
+    const scIdx = (data.scheduledCharges || []).findIndex(c => c.id === id);
+    if (scIdx !== -1) {
+      data.scheduledCharges[scIdx].name = name;
+      data.scheduledCharges[scIdx].amount = amount;
+      data.scheduledCharges[scIdx]._editedSingle = (scopeVal === 'single');
+    }
+  }
+
+  // "this_and_forward" or "future_only": update fixedExpense template + regenerate future charges
+  if (scopeVal === 'this_and_forward' || scopeVal === 'future_only') {
+    const feIdx = (data.fixedExpenses || []).findIndex(f => f.id === feId);
+    if (feIdx !== -1) {
+      data.fixedExpenses[feIdx].name = name;
+      data.fixedExpenses[feIdx].amount = amount;
+    }
+    // Delete all future scheduledCharges for this fixedExpense (chargeDate > today)
+    // For "this_and_forward" also delete the current charge so it gets updated name/amount above
+    data.scheduledCharges = (data.scheduledCharges || []).filter(c => {
+      if (c.fixedExpenseId !== feId) return true;
+      const cd = c.chargeDate || '';
+      if (scopeVal === 'future_only') return cd <= todayStr;
+      // this_and_forward: keep past charges (before chargeDate of edited charge), delete from chargeDate onward
+      return cd < chargeDate;
+    });
+    // Re-generate charges (generateScheduledCharges runs on save)
+  }
+
+  save(data);
+  generateScheduledCharges();
+  closeModal('modal-edit-charge');
+  refreshCurrentView();
+  renderDashboard();
+  toast('Charge updated.');
+}
+
+
+
 // ─── SPENDING FOR PERIOD ──────────────────────────────────────────
 function getSpendForPeriod(data, pKey) {
   const cats = getCats();
@@ -1807,6 +1975,7 @@ function getSpendForPeriod(data, pKey) {
     spent[targetCat] = (spent[targetCat] || 0) + (t.tbd ? 0 : t.amount);
   });
   charges.forEach(c => {
+    if (c.upcoming) return; // upcoming charges not yet counted as spent
     const catDef = cats[c.cat || 'fix'];
     const targetCat = catDef && catDef.parentId ? catDef.parentId : (c.cat || 'fix');
     spent[targetCat] = (spent[targetCat] || 0) + c.amount;
@@ -2020,6 +2189,8 @@ function txnRow(t, data, showEdit = true) {
     : t.savFlag ? `<span class="savings-badge">From Savings</span>`
     : paidBadge;
   const editAttr = showEdit && t.id && !isFixed ? `onclick="openEditTxn('${t.id}')" style="cursor:pointer;"` : '';
+  // Scheduled charges (isFixed) are editable via openEditCharge
+  const editChargeAttr = isFixed && t.id ? `onclick="openEditCharge('${t.id}')" style="cursor:pointer;"` : '';
   const amountDisplay = t.tbd
     ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--light);color:var(--muted);border:1px solid var(--border);">TBD</span>`
     : `<div class="txn-amount" style="color:${t.upcoming ? 'var(--muted)' : cat.dark}">${fmt(t.amount)}</div>`;
@@ -2030,7 +2201,7 @@ function txnRow(t, data, showEdit = true) {
     const daysUntil = renewDate ? Math.round((new Date(renewDate+'T12:00:00') - new Date()) / 86400000) : null;
     const daysLabel = daysUntil !== null ? (daysUntil === 0 ? 'today' : daysUntil === 1 ? 'tomorrow' : 'in ' + daysUntil + ' days') : '';
     return `
-      <div class="txn-row" style="opacity:.55;">
+      <div class="txn-row" ${editChargeAttr} style="opacity:.55;">
         <div class="txn-dot" style="background:var(--light)">
           <i class="ti ti-refresh" style="color:var(--muted);font-size:13px;" aria-hidden="true"></i>
         </div>
@@ -2046,7 +2217,7 @@ function txnRow(t, data, showEdit = true) {
   }
 
   return `
-    <div class="txn-row" ${editAttr}>
+    <div class="txn-row" ${isFixed ? editChargeAttr : editAttr}>
       <div class="txn-dot" style="background:${cat.light}">
         <span style="color:${cat.dark};font-size:11px;font-weight:700;">${cat.label.slice(0,2).toUpperCase()}</span>
       </div>
@@ -2570,100 +2741,10 @@ function renderGroceryTabContent() {
     const plan = data.weeklyPlan[pKey] || { selectedRecipes: [], w1Notes: '', w2Notes: '' };
     const mealsOut = gLogs.mealsOut || [];
 
-    // ── Food Notes (week notes side by side) ──
+    // ── Meal plan week view ──  [reordered: week plan first, meals out second, food notes third; tonight card removed]
+    // ── Food Notes variables (used below) ──
     const isMonthlyPlan = (data.periodMode === 'monthly');
     let html = '';
-    if (isMonthlyPlan) {
-      const weeks = getMonthWeeks(pStart);
-      const activeWkIdx = getActiveWeekIndex();
-      html += `<div class="card"><div class="card-title" style="color:#5a7a4e;">Food Notes</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          ${weeks.slice(0,2).map((w,i) => {
-            const key = 'w'+(i+1)+'Notes';
-            const val = (data.weeklyPlan[pKey]||{})[key]||'';
-            return `<div>
-              <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px;">${w.label}</div>
-              <div style="font-size:9px;color:var(--food-d);margin-bottom:4px;">${w.display}</div>
-              <textarea class="week-notes" rows="4" placeholder="${w.label} notes..." onchange="saveWeekNotes('${key}',this.value)" style="width:100%;">${val}</textarea>
-            </div>`;
-          }).join('')}
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
-          ${weeks.slice(2,4).map((w,i) => {
-            const key = 'w'+(i+3)+'Notes';
-            const val = (data.weeklyPlan[pKey]||{})[key]||'';
-            const isActive = (i+2) === activeWkIdx;
-            return `<div>
-              <div style="font-size:10px;font-weight:700;color:${isActive?'var(--food-d)':'var(--muted)'};text-transform:uppercase;margin-bottom:2px;">${w.label}${isActive?' · Active':''}</div>
-              <div style="font-size:9px;color:var(--food-d);margin-bottom:4px;">${w.display}</div>
-              <textarea class="week-notes" rows="4" placeholder="${w.label} notes..." onchange="saveWeekNotes('${key}',this.value)" style="width:100%;">${val}</textarea>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-    } else {
-      const w1Notes = (data.weeklyPlan[pKey] || {}).w1Notes || '';
-      const w2Notes = (data.weeklyPlan[pKey] || {}).w2Notes || '';
-      html += `<div class="card"><div class="card-title">Food Notes</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div>
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:5px;">Week 1</div>
-            <textarea class="week-notes" rows="4" placeholder="Week 1 notes..." onchange="saveWeekNotes('w1Notes',this.value)" style="width:100%;">${w1Notes}</textarea>
-          </div>
-          <div>
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:5px;">Week 2</div>
-            <textarea class="week-notes" rows="4" placeholder="Week 2 notes..." onchange="saveWeekNotes('w2Notes',this.value)" style="width:100%;">${w2Notes}</textarea>
-          </div>
-        </div>
-      </div>`;
-    }
-
-    // ── Meals out ──
-    html += `<div class="card"><div class="section-head"><div class="section-head-title" style="color:#8a4a30;">Meals Out</div><button class="link-btn" style="color:#C17B5E;" onclick="openModal('modal-meals-out')">+ Add</button></div>`;
-    if (mealsOut.length === 0) {
-      html += `<div style="font-size:12px;color:var(--muted);">None logged</div>`;
-    } else {
-      mealsOut.forEach((m, mi) => {
-        html += `<div class="meals-row"><div class="txn-dot" style="background:var(--rec-l);"><i class="ti ti-tools-kitchen-2" style="color:var(--rec-d);font-size:13px;"></i></div><div class="txn-info"><div class="txn-name">${m.where}</div><div class="txn-meta">${fmtDate(m.date)} · Week ${m.week}</div></div><div class="txn-right"><div class="txn-amount">${fmt(m.amount)}</div><button onclick="deleteMealsOut('${pKey}',${mi})" style="color:var(--muted);font-size:12px;"><i class="ti ti-x"></i></button></div></div>`;
-      });
-    }
-    html += `</div>`;
-
-
-    // ── Tonight card ──
-    const todayMeal = getTodayMeal(data);
-    if (todayMeal) {
-      const isOut = todayMeal.type === 'out';
-      const accentColor = isOut ? '#EF9F27' : 'var(--food)';
-      const textColor = isOut ? '#854F0B' : 'var(--food-d)';
-      const iconClass = isOut ? 'ti-map-pin' : 'ti-moon';
-      const eyebrowText = isOut ? 'Tonight — eating out' : 'Tonight';
-      let tonightChips = '';
-      if (isOut) {
-        tonightChips = `<span class="tonight-chip-out">eating out</span>`;
-      } else if (todayMeal.recipeId) {
-        const tr = data.recipes.find(r => r.id === todayMeal.recipeId);
-        if (tr && tr.ingredients) {
-          tonightChips = tr.ingredients.slice(0,4).map(ing => {
-            const n = typeof ing === 'string' ? ing : ing.name;
-            return `<span class="tonight-chip">${n}</span>`;
-          }).join('');
-        }
-      }
-      const recipeLink = todayMeal.recipeId
-        ? `<button class="link-btn" style="font-size:11px;color:${textColor};margin-top:6px;" onclick="openMealDayDetail(${new Date().getDay()}, '${weekKey()}')"><i class="ti ti-book" style="font-size:11px;"></i> View full recipe</button>`
-        : '';
-      html += `<div style="background:var(--surface);border-radius:14px;border-top:3px solid ${accentColor};padding:12px 14px;margin-bottom:8px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <div style="display:flex;align-items:center;gap:6px;"><i class="ti ${iconClass}" style="font-size:13px;color:${textColor};"></i><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${textColor};">${eyebrowText}</span></div>
-          <button class="link-btn" style="font-size:11px;" onclick="openMealEntryModal(${new Date().getDay()}, '${weekKey()}')">Edit</button>
-        </div>
-        <div style="font-size:17px;font-weight:700;color:${isOut ? '#633806' : 'var(--text)'};margin-bottom:3px;">${todayMeal.name}</div>
-        ${todayMeal.prepNote ? `<div style="font-size:12px;color:${textColor};line-height:1.5;margin-bottom:8px;">${todayMeal.prepNote}</div>` : ''}
-        <div class="chip-row">${tonightChips}</div>
-        ${recipeLink}
-      </div>`;
-    }
 
     // ── Meal plan week view ──
     const mealWeekOffset = window._mealWeekOffset || 0;
@@ -2677,7 +2758,7 @@ function renderGroceryTabContent() {
     const todayIdx = mealWeekOffset === 0 ? new Date().getDay() : -1;
     const linkedRecipes = getMealPlanRecipes(data, wk);
     const estCost = linkedRecipes.reduce((s,r) => s+(r.cost||0), 0);
-    html += `<div class="card" style="border-top:3px solid var(--food-l);">
+    html += `<div class="card" style="border-top:3px solid #1a2e1b;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
         <div style="display:flex;align-items:center;gap:6px;">
           <button class="link-btn" style="font-size:16px;padding:0 4px;" onclick="window._mealWeekOffset=(window._mealWeekOffset||0)-1;renderGroceryTabContent();">&#8249;</button>
@@ -2723,6 +2804,64 @@ function renderGroceryTabContent() {
       <span style="font-size:10px;color:var(--muted);">${linkedRecipes.length} recipe${linkedRecipes.length!==1?'s':''} linked${estCost>0?' · est. '+fmt(estCost):''}</span>
       <button class="link-btn" style="font-size:11px;" onclick="switchGroceryTab('list')">Shopping list →</button>
     </div></div>`;
+
+    // ── Meals out ──
+    html += `<div class="card" style="background:#F9EDE8;border:.5px solid #e8c9ba;"><div class="section-head"><div class="section-head-title" style="color:#8a4a30;">Meals Out</div><button onclick="openModal('modal-meals-out')" style="background:#C17B5E;color:#fff;border:none;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;">+ Add Meal Out</button></div>`;
+    if (mealsOut.length === 0) {
+      html += `<div style="font-size:12px;color:var(--muted);">None logged</div>`;
+    } else {
+      mealsOut.forEach((m, mi) => {
+        html += `<div class="meals-row"><div class="txn-dot" style="background:var(--rec-l);"><i class="ti ti-tools-kitchen-2" style="color:var(--rec-d);font-size:13px;"></i></div><div class="txn-info"><div class="txn-name">${m.where}</div><div class="txn-meta">${fmtDate(m.date)} · Week ${m.week}</div></div><div class="txn-right"><div class="txn-amount">${fmt(m.amount)}</div><button onclick="deleteMealsOut('${pKey}',${mi})" style="color:var(--muted);font-size:12px;"><i class="ti ti-x"></i></button></div></div>`;
+      });
+    }
+    html += `</div>`;
+
+    // ── Food Notes (week notes) ──
+    if (isMonthlyPlan) {
+      const weeks = getMonthWeeks(pStart);
+      const activeWkIdx = getActiveWeekIndex();
+      html += `<div class="card"><div class="card-title" style="color:#5a7a4e;">Food Notes</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          ${weeks.slice(0,2).map((w,i) => {
+            const key = 'w'+(i+1)+'Notes';
+            const val = (data.weeklyPlan[pKey]||{})[key]||'';
+            return `<div>
+              <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px;">${w.label}</div>
+              <div style="font-size:9px;color:var(--food-d);margin-bottom:4px;">${w.display}</div>
+              <textarea class="week-notes" rows="4" placeholder="${w.label} notes..." onchange="saveWeekNotes('${key}',this.value)" style="width:100%;">${val}</textarea>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+          ${weeks.slice(2,4).map((w,i) => {
+            const key = 'w'+(i+3)+'Notes';
+            const val = (data.weeklyPlan[pKey]||{})[key]||'';
+            const isActive = (i+2) === activeWkIdx;
+            return `<div>
+              <div style="font-size:10px;font-weight:700;color:${isActive?'var(--food-d)':'var(--muted)'};text-transform:uppercase;margin-bottom:2px;">${w.label}${isActive?' · Active':''}</div>
+              <div style="font-size:9px;color:var(--food-d);margin-bottom:4px;">${w.display}</div>
+              <textarea class="week-notes" rows="4" placeholder="${w.label} notes..." onchange="saveWeekNotes('${key}',this.value)" style="width:100%;">${val}</textarea>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    } else {
+      const w1Notes = (data.weeklyPlan[pKey] || {}).w1Notes || '';
+      const w2Notes = (data.weeklyPlan[pKey] || {}).w2Notes || '';
+      html += `<div class="card"><div class="card-title">Food Notes</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:5px;">Week 1</div>
+            <textarea class="week-notes" rows="4" placeholder="Week 1 notes..." onchange="saveWeekNotes('w1Notes',this.value)" style="width:100%;">${w1Notes}</textarea>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:5px;">Week 2</div>
+            <textarea class="week-notes" rows="4" placeholder="Week 2 notes..." onchange="saveWeekNotes('w2Notes',this.value)" style="width:100%;">${w2Notes}</textarea>
+          </div>
+        </div>
+      </div>`;
+    }
+
     // ── Food subscriptions (fixed expenses tagged as food) ──
     const today3 = localDateStr();
     const foodFixed = data.fixedExpenses.filter(f => f.cat === 'food' && (!f.endDate || f.endDate > today3));
@@ -2741,26 +2880,30 @@ function renderGroceryTabContent() {
 
 
   } else if (groceryTab === 'recipes') {
-    const plan = data.weeklyPlan[pKey] || { selectedRecipes: [] };
-    const selected = plan.selectedRecipes || [];
-    let html = `
-      <div style="margin-bottom:10px;font-size:12px;color:var(--muted);">Tap to select up to 3 recipes for this period</div>
-      <div style="margin-bottom:12px;">`;
+    const mealWeekOffset = window._mealWeekOffset || 0;
+    const sun = currentWeekSunday();
+    const viewSun = new Date(sun); viewSun.setDate(sun.getDate() + mealWeekOffset * 7);
+    const wk = weekKey(viewSun);
+    const planRecipes = getMealPlanRecipes(data, wk);
+    const planRecipeIds = new Set(planRecipes.map(r => r.id));
+    let html = `<div style="margin-bottom:12px;">`;
     data.recipes.forEach(r => {
-      const isSel = selected.includes(r.id);
+      const inPlan = planRecipeIds.has(r.id);
       const ingList = (r.ingredients || []).map(i => typeof i === 'string' ? i : (i.name || '')).filter(Boolean).slice(0,3).join(', ');
       const meta = [r.category, r.servings ? r.servings + ' servings' : ''].filter(Boolean).join(' · ');
       html += `
-        <div class="recipe-chip ${isSel ? 'selected' : ''}" style="display:flex;align-items:center;gap:8px;">
-          <div style="flex:1;" onclick="toggleRecipe('${r.id}')">
-            <div class="recipe-name">${r.name}</div>
+        <div class="recipe-chip ${inPlan ? 'selected' : ''}" style="display:flex;align-items:center;gap:8px;">
+          <div style="flex:1;" onclick="openEditRecipeById('${r.id}')">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <div class="recipe-name">${r.name}</div>
+              ${inPlan ? `<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:#EFF5ED;color:#1a2e1b;">this week</span>` : ''}
+            </div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">${meta}</div>
             <div style="font-size:11px;color:var(--muted);">${ingList}${r.ingredients.length > 3 ? '...' : ''}</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
             <div class="recipe-cost">${fmt(r.cost)}</div>
-            ${isSel ? '<i class="ti ti-check" style="color:var(--food);font-size:14px;"></i>' : ''}
-            <button onclick="openEditRecipeById('${r.id}')" style="color:var(--muted);padding:4px;font-size:16px;"><i class="ti ti-pencil"></i></button>
+            <button onclick="event.stopPropagation();openEditRecipeById('${r.id}')" style="color:var(--muted);padding:4px;font-size:16px;"><i class="ti ti-pencil"></i></button>
           </div>
         </div>`;
     });
@@ -2795,7 +2938,11 @@ function renderGroceryTabContent() {
   } else if (groceryTab === 'list') {
     const planL = data.weeklyPlan[pKey] || { selectedRecipes: [], checkedStaples: [] };
     const checkedStaples = planL.checkedStaples || [];
-    const selectedRecipes = (planL.selectedRecipes || []).map(id => data.recipes.find(r => r.id === id)).filter(Boolean);
+    const mealWeekOffsetL = window._mealWeekOffset || 0;
+    const sunL = currentWeekSunday();
+    const viewSunL = new Date(sunL); viewSunL.setDate(sunL.getDate() + mealWeekOffsetL * 7);
+    const wkL = weekKey(viewSunL);
+    const selectedRecipes = getMealPlanRecipes(data, wkL);
 
     // Checked staples only
     const checkedStapleItems = data.staples.filter(s => checkedStaples.includes(s.id || s));
@@ -2857,7 +3004,7 @@ function renderGroceryTabContent() {
     }
 
     if (checkedStapleItems.length === 0 && recipeItems.length === 0) {
-      html += `<div class="card"><div style="font-size:12px;color:var(--muted);">Check staples and select recipes to build your list</div></div>`;
+      html += `<div class="card"><div style="font-size:12px;color:var(--muted);">Add meals to your week plan to build your recipe list, or check staples below</div></div>`;
     }
 
     // Don't Forget section
@@ -2910,20 +3057,7 @@ function renderGroceryTabContent() {
   }
 }
 
-function toggleRecipe(id) {
-  const data = db();
-  const pKey = periodKey(currentPeriodStart());
-  if (!data.weeklyPlan[pKey]) data.weeklyPlan[pKey] = { selectedRecipes: [] };
-  const sel = data.weeklyPlan[pKey].selectedRecipes;
-  const idx = sel.indexOf(id);
-  if (idx !== -1) {
-    sel.splice(idx, 1);
-  } else if (sel.length < 3) {
-    sel.push(id);
-  }
-  save(data);
-  renderGroceryTabContent();
-}
+
 
 function saveGroceryLog() {
   const data = db();
@@ -3368,15 +3502,7 @@ function saveWeekNotes(key, val) {
   data.weeklyPlan[pKey][key] = val;
   save(data);
 }
-function resetWeek() {
-  if (!confirm('Clear this week\'s recipe selections?')) return;
-  const data = db();
-  const pKey = periodKey(currentPeriodStart());
-  if (data.weeklyPlan[pKey]) data.weeklyPlan[pKey].selectedRecipes = [];
-  save(data);
-  toast('Week selections cleared');
-  renderGroceryTabContent();
-}
+
 
 // ─── RECIPE CRUD ──────────────────────────────────────────────────
 function recalcRecipeCost() {
@@ -4886,6 +5012,17 @@ function generateScheduledCharges() {
   backfillLimit.setMonth(backfillLimit.getMonth() - 12);
   const backfillLimitStr = localDateStr(backfillLimit);
 
+  // Calculate end of current period — look ahead to show upcoming charges this period
+  const currentPStart = isMonthly ? currentMonthStart() : currentPeriodStart();
+  const currentPEnd = new Date(currentPStart);
+  if (isMonthly) {
+    currentPEnd.setMonth(currentPEnd.getMonth() + 1);
+    currentPEnd.setDate(currentPEnd.getDate() - 1);
+  } else {
+    currentPEnd.setDate(currentPEnd.getDate() + 13);
+  }
+  currentPEnd.setHours(12,0,0,0);
+
   data.fixedExpenses.forEach(fe => {
     const startDate = fe.startDate || fe.renewalDate || '';
     if (!startDate) return;
@@ -4894,24 +5031,20 @@ function generateScheduledCharges() {
     const effectiveStart = startDate < backfillLimitStr ? backfillLimitStr : startDate;
     const endDate = fe.endDate || '';
 
-    // Walk through all charge dates from effectiveStart to today
-    let chargeDate = new Date(effectiveStart + 'T12:00:00');
     const freqMap = { monthly: 1, biweekly: 0.5, quarterly: 3, annual: 12 };
     const months = freqMap[fe.freq] || 1;
 
     // Advance to first charge on or after effectiveStart
     const originalStart = new Date((fe.startDate || fe.renewalDate || effectiveStart) + 'T12:00:00');
-    chargeDate = new Date(originalStart);
+    let chargeDate = new Date(originalStart);
 
-    // Advance to within our window
     while (localDateStr(chargeDate) < effectiveStart) {
       if (months < 1) chargeDate.setDate(chargeDate.getDate() + 14);
       else chargeDate.setMonth(chargeDate.getMonth() + months);
     }
 
-    const now = new Date(); now.setHours(12,0,0,0);
-
-    while (chargeDate <= now) {
+    // Walk through all charge dates up to end of current period (not just today)
+    while (chargeDate <= currentPEnd) {
       const chargeDateStr = localDateStr(chargeDate);
 
       // Stop if past end date
@@ -4925,19 +5058,26 @@ function generateScheduledCharges() {
         pKey = periodKey(getPeriodStart(new Date(chargeDateStr + 'T12:00:00')));
       }
 
-      // Check if charge already exists for this fe + period
+      // Only generate upcoming entries for the CURRENT period
+      // (don't pre-generate for future periods — those get created when the time comes)
+      const currentPKey = isMonthly ? monthPeriodKey(currentPStart) : periodKey(currentPStart);
+      const isFuturePeriod = pKey > currentPKey;
+      if (isFuturePeriod) {
+        if (months < 1) chargeDate.setDate(chargeDate.getDate() + 14);
+        else chargeDate.setMonth(chargeDate.getMonth() + months);
+        continue;
+      }
+
+      // Check if charge already exists for this fe + chargeDate
+      // Use chargeDate-level uniqueness for upcoming to avoid conflicts
       const exists = data.scheduledCharges.some(c =>
-        c.fixedExpenseId === fe.id && c.periodKey === pKey
+        c.fixedExpenseId === fe.id && c.chargeDate === chargeDateStr
       );
 
       if (!exists) {
-        // Find existing fixedExpense record for this period to check paid status
-        const existingFeRecord = data.fixedExpenses.find(f =>
-          f.id === fe.id + '_charge_' + pKey
-        );
-
+        const isUpcoming = chargeDateStr > todayStr;
         data.scheduledCharges.push({
-          id: 'sc_' + fe.id + '_' + pKey,
+          id: 'sc_' + fe.id + '_' + chargeDateStr.replace(/-/g,''),
           fixedExpenseId: fe.id,
           name: fe.name,
           amount: fe.amount,
@@ -4947,8 +5087,18 @@ function generateScheduledCharges() {
           chargeDate: chargeDateStr,
           paid: false,
           isScheduledCharge: true,
+          upcoming: isUpcoming,
         });
         changed = true;
+      } else {
+        // Update upcoming flag on existing record in case date has now passed
+        const scIdx = data.scheduledCharges.findIndex(c =>
+          c.fixedExpenseId === fe.id && c.chargeDate === chargeDateStr
+        );
+        if (scIdx !== -1 && data.scheduledCharges[scIdx].upcoming && chargeDateStr <= todayStr) {
+          data.scheduledCharges[scIdx].upcoming = false;
+          changed = true;
+        }
       }
 
       // Advance to next charge
@@ -4960,6 +5110,7 @@ function generateScheduledCharges() {
   if (changed) save(data);
   return changed;
 }
+
 
 function toggleScheduledChargePaid(id) {
   const data = db();
