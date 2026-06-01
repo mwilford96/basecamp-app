@@ -310,11 +310,11 @@ select.form-input{appearance:none;-webkit-appearance:none;}
       </div>
 
       <!-- Tonight card -->
-      <div id="db-tonight-card" style="display:none;border-radius:14px;border-top:3px solid var(--food);background:var(--surface);padding:13px 16px;margin-bottom:10px;">
+      <div id="db-tonight-card" style="display:none;border-radius:14px;border-top:3px solid #1a2e1b;background:#EFF5ED;padding:13px 16px;margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
           <div style="display:flex;align-items:center;gap:6px;" id="db-tonight-eyebrow">
-            <i class="ti ti-moon" style="font-size:13px;color:var(--food-d);"></i>
-            <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--food-d);">Tonight</span>
+            <i class="ti ti-moon" style="font-size:13px;color:#1a2e1b;"></i>
+            <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#1a2e1b;">Tonight</span>
           </div>
           <button class="link-btn" onclick="switchView('groceries')" style="font-size:11px;">Edit</button>
         </div>
@@ -322,7 +322,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
         <div id="db-tonight-note" style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px;"></div>
         <div id="db-tonight-chips" class="chip-row"></div>
         <div id="db-tonight-recipe-link" style="display:none;margin-top:6px;">
-          <button class="link-btn" style="font-size:11px;color:var(--food-d);" id="db-tonight-recipe-btn"><i class="ti ti-book" style="font-size:11px;"></i> View full recipe</button>
+          <button class="link-btn" style="font-size:11px;color:#1a2e1b;" id="db-tonight-recipe-btn"><i class="ti ti-book" style="font-size:11px;"></i> View full recipe</button>
         </div>
       </div>
 
@@ -2125,10 +2125,12 @@ function renderDashboard() {
       const textColor = isOut ? '#854F0B' : 'var(--food-d)';
       const iconClass = isOut ? 'ti-map-pin' : 'ti-moon';
       const eyebrowText = isOut ? 'Tonight \u2014 eating out' : 'Tonight';
-      tonightCard.style.borderTopColor = accentColor;
+      tonightCard.style.borderTopColor = isOut ? '#EF9F27' : '#1a2e1b';
+      tonightCard.style.background = isOut ? 'var(--surface)' : '#EFF5ED';
       tonightCard.style.display = 'block';
       const eyebrow = document.getElementById('db-tonight-eyebrow');
-      if (eyebrow) eyebrow.innerHTML = `<i class="ti ${iconClass}" style="font-size:13px;color:${textColor};"></i><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${textColor};">${eyebrowText}</span>`;
+      const eColor = isOut ? textColor : '#1a2e1b';
+      if (eyebrow) eyebrow.innerHTML = `<i class="ti ${iconClass}" style="font-size:13px;color:${eColor};"></i><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${eColor};">${eyebrowText}</span>`;
       const mealEl = document.getElementById('db-tonight-meal');
       if (mealEl) { mealEl.textContent = todayMeal.name; mealEl.style.color = isOut ? '#633806' : 'var(--text)'; }
       const noteEl = document.getElementById('db-tonight-note');
@@ -2761,11 +2763,11 @@ function renderGroceryTabContent() {
     html += `<div class="card" style="border-top:3px solid #1a2e1b;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <button class="link-btn" style="font-size:16px;padding:0 4px;" onclick="window._mealWeekOffset=(window._mealWeekOffset||0)-1;renderGroceryTabContent();">&#8249;</button>
+          <button class="link-btn" style="font-size:16px;padding:0 4px;color:#1a2e1b;" onclick="window._mealWeekOffset=(window._mealWeekOffset||0)-1;renderGroceryTabContent();">&#8249;</button>
           <div class="section-head-title">${mealWeekOffset === 0 ? 'This week' : mealWeekOffset === 1 ? 'Next week' : mealWeekOffset === -1 ? 'Last week' : (mealWeekOffset > 0 ? '+'+mealWeekOffset+' weeks' : mealWeekOffset+' weeks')}</div>
-          <button class="link-btn" style="font-size:16px;padding:0 4px;" onclick="window._mealWeekOffset=(window._mealWeekOffset||0)+1;renderGroceryTabContent();">&#8250;</button>
+          <button class="link-btn" style="font-size:16px;padding:0 4px;color:#1a2e1b;" onclick="window._mealWeekOffset=(window._mealWeekOffset||0)+1;renderGroceryTabContent();">&#8250;</button>
         </div>
-        <button class="link-btn" onclick="openMealEntryModal(null, '${wk}')">+ Add</button>
+        <button class="link-btn" style="color:#1a2e1b;" onclick="openMealEntryModal(null, '${wk}')">+ Add</button>
       </div>
       <div style="font-size:10px;color:var(--muted);text-align:right;margin-bottom:8px;">${fmtShort(sunDate)} – ${fmtShort(weekEndDate)}</div>`;
     for (let d = 0; d < 7; d++) {
@@ -2773,8 +2775,8 @@ function renderGroceryTabContent() {
       const dateLabel = fmtShort(dayDate);
       const meal = weekPlan.find(m => m.day === d) || null;
       const isToday = d === todayIdx;
-      const todayBorder = isToday ? 'border-left:2.5px solid var(--food);border-radius:0 10px 10px 0;' : 'border-radius:10px;';
-      const cellBg = isToday ? 'background:var(--surface);' : 'background:var(--light);';
+      const todayBorder = isToday ? 'border-left:2.5px solid #1a2e1b;border-radius:0 10px 10px 0;' : 'border-radius:10px;';
+      const cellBg = isToday ? 'background:#EFF5ED;' : 'background:var(--light);';
       if (meal) {
         const isOut = meal.type === 'out';
         const tagBg = isOut ? '#FAEEDA' : meal.recipeId ? 'var(--food-l)' : 'var(--light)';
@@ -2802,7 +2804,7 @@ function renderGroceryTabContent() {
     }
     html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);">
       <span style="font-size:10px;color:var(--muted);">${linkedRecipes.length} recipe${linkedRecipes.length!==1?'s':''} linked${estCost>0?' · est. '+fmt(estCost):''}</span>
-      <button class="link-btn" style="font-size:11px;" onclick="switchGroceryTab('list')">Shopping list →</button>
+      <button class="link-btn" style="font-size:11px;color:#1a2e1b;" onclick="switchGroceryTab('list')">Shopping list →</button>
     </div></div>`;
 
     // ── Meals out ──
