@@ -2436,20 +2436,27 @@ function renderScheduledPayments(contentEl) {
         if (group.length === 0) return;
         const groupTotal = group.reduce((s,f) => s + (f.amount||0), 0);
         html += `<div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:10px 0 6px;padding-bottom:4px;border-bottom:0.5px solid var(--border);">${cadenceLabel[cadence]}</div>`;
-        html += group.map(f => `
+        html += group.map(f => {
+          // Find the next upcoming charge for this fixed expense
+          const futureCharges = (data.scheduledCharges || [])
+            .filter(sc => sc.fixedExpenseId === f.id && sc.chargeDate > today)
+            .sort((a, b) => a.chargeDate.localeCompare(b.chargeDate));
+          const nextChargeDate = futureCharges.length > 0 ? futureCharges[0].chargeDate : (f.renewalDate || '');
+          return `
           <div class="fixed-row" onclick="openEditFixed('${f.id}')" style="cursor:pointer;">
             <div class="txn-dot" style="background:${cat.light};">
               <i class="ti ti-repeat" style="color:${cat.dark};font-size:14px;"></i>
             </div>
             <div class="fixed-info">
               <div class="fixed-name">${f.name}</div>
-              <div class="fixed-freq">Next: ${fmtDate(f.renewalDate||'')}</div>
+              <div class="fixed-freq">Next: ${fmtDate(nextChargeDate)}</div>
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
               <div class="fixed-amount" style="color:${cat.dark};">${fmt(f.amount)}</div>
 
             </div>
-          </div>`).join('');
+          </div>`;
+        }).join('');
         // Subtotal row
         html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:8px;background:${cat.light};margin-top:6px;margin-bottom:4px;">
           <span style="font-size:11px;font-weight:600;color:${cat.dark};">${cadenceLabel[cadence]} total</span>
