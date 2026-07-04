@@ -3962,7 +3962,6 @@ function showHistoryDetail(pKey) {
 // ─── SETTINGS ────────────────────────────────────────────────────
 function renderSettings() {
   const data = db();
-  const b = data.budgets;
   const hasSync = getApiKey() && getGistId();
   const syncStatus = hasSync
     ? `<span style="color:#388E3C;font-weight:600;">&#10003; Connected</span>`
@@ -3975,25 +3974,25 @@ function renderSettings() {
       '<div class="settings-row"><span>Disconnect</span><button class="link-btn" style="color:var(--danger);" onclick="disconnectSync()">Disconnect</button></div>'
     : '<div class="settings-row"><div><div style="font-size:14px;font-weight:500;">Setup</div><div style="font-size:11px;color:var(--muted);">Enter your GitHub token to sync</div></div><button class="link-btn" onclick="openSyncSetup()">Setup</button></div>';
 
-  let html = '<div class="card settings-section"><div class="settings-label">Cloud Sync</div><div class="settings-row"><div><div style="font-size:14px;font-weight:500;">Status</div></div>' + syncStatus + '</div>' + syncRows + '</div>';
-
-
-  // ── Category settings (dynamic) ──
-  html += renderCategorySettings();
-
   // ── Family names ──
-  html += renderFamilyNamesSettings();
+  let html = renderFamilyNamesSettings();
 
-  // ── Assignees ──
-  html += renderAssigneeSettings();
-
-  // ── Recurring Payments ──
+  // ── Budget Categories (accordion) ──
+  const expanded = window._catAccordionOpen || false;
+  const chevron = expanded
+    ? '<i class="ti ti-chevron-up" style="font-size:14px;color:var(--muted);"></i>'
+    : '<i class="ti ti-chevron-down" style="font-size:14px;color:var(--muted);"></i>';
   html += `<div class="card settings-section">
-    <div class="settings-label">Recurring Payments</div>
-    <div class="settings-row">
-      <span>Manage recurring payments</span>
-      <button class="link-btn" onclick="switchView('budget');setBudgetSubview('scheduled');">Manage</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:2px 0;" onclick="window._catAccordionOpen=!window._catAccordionOpen;renderSettings();">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="settings-label" style="margin:0;">Budget Categories</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="link-btn" style="pointer-events:auto;" onclick="event.stopPropagation();openAddCategory();">+ New</button>
+        ${chevron}
+      </div>
     </div>
+    ${expanded ? '<div style="margin-top:10px;">' + renderCategoryRows() + '</div>' : ''}
   </div>`;
 
   // ── Grocery Spend Alert ──
@@ -4017,7 +4016,7 @@ function renderSettings() {
     </div>
   </div>`;
 
-  // ── Period Mode ──
+  // ── Budget Cycle ──
   const modeLabel = data.periodMode === 'monthly'
     ? '24 pay periods/year (semi-monthly)'
     : '26 pay periods/year (bi-weekly)';
@@ -4032,9 +4031,7 @@ function renderSettings() {
     </div>
   </div>`;
 
-
-
-  // ── Data ──
+  // ── Data & Backup ──
   html += `<div class="card settings-section">
     <div class="settings-label">Data & Backup</div>
     <div class="settings-row">
@@ -4051,7 +4048,48 @@ function renderSettings() {
       <button class="link-btn" style="color:var(--danger);" onclick="clearData()">Clear</button>
     </div>
   </div>`;
+
+  // ── Cloud Sync (bottom) ──
+  html += `<div class="card settings-section">
+    <div class="settings-label">Cloud Sync</div>
+    <div class="settings-row"><div><div style="font-size:14px;font-weight:500;">Status</div></div>${syncStatus}</div>
+    ${syncRows}
+  </div>`;
+
   document.getElementById('settings-content').innerHTML = html;
+}
+
+function renderCategoryRows() {
+  const data = db();
+  const topLevel = (data.categories || DEFAULT_CATEGORIES).filter(c => !c.parentId);
+  let html = '';
+  topLevel.forEach(catDef => {
+    const palette = COLOR_PALETTE.find(p => p.id === catDef.colorId) || COLOR_PALETTE[0];
+    const subs = (data.categories || DEFAULT_CATEGORIES).filter(c => c.parentId === catDef.id);
+    html += `<div style="padding:10px 0;border-bottom:0.5px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:12px;height:12px;border-radius:50%;background:${palette.color};flex-shrink:0;"></div>
+          <div>
+            <div style="font-size:14px;font-weight:500;">${catDef.label}</div>
+            <div style="font-size:11px;color:var(--muted);">${catDef.type === 'recurring' ? 'Scheduled · ' : 'Manual · '}${catDef.budget > 0 ? fmt(catDef.budget) + ' budget' : 'no budget'}</div>
+          </div>
+        </div>
+        <button class="link-btn" onclick="openEditCategory('${catDef.id}')">Edit</button>
+      </div>
+      ${subs.map(s => {
+        const sp = COLOR_PALETTE.find(p => p.id === s.colorId) || palette;
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 0 20px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:${sp.color};"></div>
+            <span style="font-size:12px;color:var(--muted);">↳ ${s.label}</span>
+          </div>
+          <button class="link-btn" style="font-size:11px;" onclick="openEditCategory('${s.id}')">Edit</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+  });
+  return html || '<div style="font-size:13px;color:var(--muted);padding:8px 0;">No categories yet.</div>';
 }
 
 
