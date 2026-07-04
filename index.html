@@ -45,12 +45,12 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;}
 .view.active{display:block;}
 
 /* Nav */
-.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#F2EDE6;border-top:0.5px solid #c8c0b4;display:flex;z-index:100;padding-top:8px;padding-bottom:max(env(safe-area-inset-bottom), 8px);}
-.nav::before{content:'';position:absolute;top:0;left:14px;right:14px;height:2px;background:#1a2e1b;border-radius:0 0 2px 2px;}
-.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px 8px;font-size:10px;font-weight:500;color:var(--muted);transition:color .2s;position:relative;}
-.nav-btn::before{content:'';display:block;width:4px;height:4px;border-radius:50%;background:transparent;margin:0 auto 1px;transition:background .2s;}
-.nav-btn.active::before{background:#C17B5E;}
-.nav-btn.active{color:#1a2e1b;}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#1E3A2A;border-top:none;display:flex;z-index:100;padding-top:8px;padding-bottom:max(env(safe-area-inset-bottom), 8px);}
+.nav::before{content:none;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px 8px;font-size:9px;font-weight:500;color:rgba(255,255,255,.5);transition:color .2s;position:relative;white-space:nowrap;}
+.nav-btn::before{content:none;}
+.nav-btn.active::before{content:none;}
+.nav-btn.active{color:#F2B53C;}
 .nav-btn i{font-size:20px;}
 
 /* Header */
@@ -89,7 +89,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;}
 .legend-spent{font-size:11px;opacity:.7;}
 
 /* CC Balance */
-.cc-card{background:linear-gradient(135deg,#2d2d2d,#1a1a1a);color:#fff;border-radius:var(--radius);padding:18px;margin-bottom:12px;}
+.cc-card{background:#1E3A2A;color:#fff;border-radius:var(--radius);padding:18px;margin-bottom:12px;}
 .cc-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.6;margin-bottom:4px;}
 .cc-amount{font-family:'DM Serif Display',serif;font-size:32px;letter-spacing:-.5px;}
 .cc-sub{font-size:11px;opacity:.5;margin-top:4px;}
@@ -109,7 +109,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;}
 .savings-badge{font-size:9px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:20px;background:var(--sav-l);color:var(--sav-d);}
 
 /* FAB */
-.fab{position:fixed;bottom:calc(76px + env(safe-area-inset-bottom));right:calc(50% - 200px);width:52px;height:52px;border-radius:50%;background:var(--pumpkin);color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(217,119,46,.45);z-index:99;transition:transform .15s;}
+.fab{position:fixed;bottom:calc(76px + env(safe-area-inset-bottom));right:max(16px, calc(50% - 199px));width:52px;height:52px;border-radius:50%;background:var(--pumpkin);color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(217,119,46,.45);z-index:99;transition:transform .15s;}
 .fab:active{transform:scale(.92);}
 
 /* Modal */
@@ -480,7 +480,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
       <i class="ti ti-tools-kitchen-2"></i><span>Mess Hall</span>
     </button>
     <button class="nav-btn" id="nav-todo" onclick="switchView('todo')">
-      <i class="ti ti-checkbox"></i><span>Camp Duties</span>
+      <i class="ti ti-checkbox"></i><span>Duties</span>
     </button>
     <button class="nav-btn" id="nav-history" onclick="switchView('history')">
       <i class="ti ti-chart-bar"></i><span>Trail Log</span>
@@ -738,6 +738,43 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     </div>
   </div>
 
+  <!-- PLAN THIS MODAL (day picker) -->
+  <div class="modal-overlay" id="modal-plan-this" onclick="closePlanThisModalOutside(event)">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Plan this &middot; <span id="pt-recipe-name"></span></div>
+      <div id="pt-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:12px;font-size:10px;color:var(--muted);margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:4px;"><div style="width:7px;height:7px;border-radius:50%;background:#2D5F2D;"></div>Planned</div>
+        <div style="display:flex;align-items:center;gap:4px;"><div style="width:7px;height:7px;border-radius:2px;background:#EF9F27;"></div>Eating out</div>
+      </div>
+      <div id="pt-confirm-wrap" style="display:none;"></div>
+      <button class="btn btn-secondary" onclick="closePlanThisModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- RECIPE VIEW MODAL (read-only) -->
+  <div class="modal-overlay" id="modal-recipe-view" onclick="closeRecipeViewModalOutside(event)">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div>
+          <div class="modal-title" id="rv-name" style="margin-bottom:0;"></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="rv-meta"></div>
+        </div>
+        <button onclick="event.stopPropagation();closeRecipeViewModal();openEditRecipeById(document.getElementById('modal-recipe-view').dataset.rid);" style="background:none;border:none;padding:4px;color:var(--muted);" aria-label="Edit recipe"><i class="ti ti-pencil" style="font-size:18px;"></i></button>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;margin-top:12px;">Ingredients</div>
+      <div id="rv-ingredients" style="font-size:14px;line-height:1.9;color:var(--text);margin-bottom:16px;"></div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Steps</div>
+      <div id="rv-steps"></div>
+      <div id="rv-notes-wrap" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);font-style:italic;display:none;">
+        <span id="rv-notes"></span>
+      </div>
+      <button class="btn btn-secondary" onclick="closeRecipeViewModal()" style="margin-top:16px;">Close</button>
+    </div>
+  </div>
+
   <!-- HISTORY DETAIL MODAL -->
   <div class="modal-overlay" id="modal-history-detail" onclick="closeModalOutside(event,'modal-history-detail')">
     <div class="modal">
@@ -846,8 +883,6 @@ select.form-input{appearance:none;-webkit-appearance:none;}
       <button class="btn btn-secondary" onclick="closeModal('modal-staple')">Cancel</button>
     </div>
   </div>
-
-
 
   <!-- ADD RECURRING TASK MODAL -->
   <div class="modal-overlay" id="modal-recurring-task" onclick="closeModalOutside(event,'modal-recurring-task')">
@@ -969,7 +1004,6 @@ select.form-input{appearance:none;-webkit-appearance:none;}
       <button class="btn btn-secondary" onclick="closeModal('modal-category')">Cancel</button>
     </div>
   </div>
-
 
   <!-- DONT FORGET MODAL -->
   <div class="modal-overlay" id="modal-dont-forget" onclick="closeModalOutside(event,'modal-dont-forget')">
@@ -1977,8 +2011,6 @@ function saveEditCharge() {
   toast('Charge updated.');
 }
 
-
-
 // ─── SPENDING FOR PERIOD ──────────────────────────────────────────
 function getSpendForPeriod(data, pKey) {
   const cats = getCats();
@@ -2141,8 +2173,6 @@ function renderDashboard() {
       </div>
     </div>`;
   }).join('');
-
-
 
   // To-do alert banner
   const todoAlertEl = document.getElementById('db-todo-alert');
@@ -2336,7 +2366,7 @@ function renderBudget() {
         <i class="ti ti-chevron-left" style="font-size:18px;"></i>
       </button>
       <div style="text-align:center;flex:1;min-width:0;">
-        <div style="font-family:Georgia,serif;font-size:14px;color:#1a2e1b;font-weight:500;">${periodLabelText}</div>
+        <div style="font-family:inherit;font-size:14px;color:#1a2e1b;font-weight:500;">${periodLabelText}</div>
         <div style="font-size:9px;color:#888;margin-top:1px;">${navLabel}${subInfo ? ' &middot; ' + subInfo : ''}</div>
       </div>
       <button onclick="${rightDisabled ? '' : "setBudgetSubview('" + (pIdx+1) + "')"}" style="${arrowStyle(rightDisabled)}" ${rightDisabled ? 'disabled' : ''} aria-label="Next period">
@@ -2632,7 +2662,6 @@ function openAddFixedForCat(catId) {
   }, 50);
 }
 
-
 function toggleEndedSubs(btn) {
   const list = document.getElementById('ended-subs-list');
   if (!list) return;
@@ -2865,29 +2894,38 @@ function renderGroceryTabContent() {
       const dateLabel = fmtShort(dayDate);
       const meal = weekPlan.find(m => m.day === d) || null;
       const isToday = d === todayIdx;
-      const todayBorder = isToday ? 'border-left:3px solid #1a2e1b;border-radius:0 10px 10px 0;' : 'border-radius:10px;';
-      const cellBg = isToday ? 'background:#EFF5ED;' : 'background:var(--light);';
       if (meal) {
         const isOut = meal.type === 'out';
-        const tagBg = isOut ? '#FAEEDA' : meal.recipeId ? 'var(--food-l)' : 'var(--light)';
-        const tagColor = isOut ? '#854F0B' : meal.recipeId ? 'var(--food-d)' : 'var(--muted)';
+        const cardBg = isOut ? '#FAEEDA' : '#EFF5ED';
+        const cardBorder = isOut ? '#EF9F27' : '#2D5F2D';
+        const nameColor = isOut ? '#854F0B' : '#1E3A2A';
+        const tagBg = isOut ? '#F0C674' : '#C5DBC1';
+        const tagColor = isOut ? '#633806' : '#1E3A2A';
         const tagLabel = isOut ? 'out' : meal.recipeId ? 'recipe' : meal.type === 'leftovers' ? 'leftovers' : 'manual';
-        html += `<div style="display:grid;grid-template-columns:38px 1fr;gap:6px;margin-bottom:4px;align-items:center;">
-          <div style="text-align:right;"><div style="font-size:10px;font-weight:700;color:var(--muted);">${DAY_SHORT[d]}</div><div style="font-size:9px;color:var(--border-dark,#bbb);">${dateLabel}</div></div>
-          <div style="${cellBg}${todayBorder}padding:7px 10px;display:flex;align-items:center;justify-content:space-between;min-height:36px;cursor:pointer;" onclick="openMealDayDetail(${d}, '${wk}')">
-            <div>
-              <div style="font-size:12px;font-weight:600;color:${isOut?'#633806':'var(--text)'};">${meal.name}</div>
-              ${meal.cook || meal.prepNote ? `<div style="font-size:10px;color:var(--muted);margin-top:1px;">${meal.cook ? meal.cook+(meal.prepNote?(' — '+meal.prepNote.substring(0,30)+(meal.prepNote.length>30?'...':'')):'') : meal.prepNote.substring(0,40)}</div>` : ''}
+        const todayRing = isToday ? 'box-shadow:0 0 0 1.5px #1E3A2A;' : '';
+        html += `<div style="display:flex;gap:8px;padding:9px 10px;margin-bottom:6px;background:${cardBg};border:0.5px solid ${cardBorder};border-radius:10px;${todayRing}cursor:pointer;" onclick="openMealDayDetail(${d}, '${wk}')">
+          <div style="text-align:center;flex-shrink:0;min-width:30px;">
+            <div style="font-size:9px;font-weight:700;color:${nameColor};">${DAY_SHORT[d].toUpperCase()}</div>
+            <div style="font-size:13px;font-weight:600;color:${nameColor};margin-top:1px;">${dayDate.getDate()}</div>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="font-size:13px;font-weight:600;color:${nameColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${meal.name}</div>
+              <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;background:${tagBg};color:${tagColor};white-space:nowrap;flex-shrink:0;">${tagLabel}</span>
             </div>
-            <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;background:${tagBg};color:${tagColor};white-space:nowrap;flex-shrink:0;">${tagLabel}</span>
+            ${meal.cook || meal.prepNote ? `<div style="font-size:11px;color:${nameColor};opacity:.75;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${meal.cook ? meal.cook+(meal.prepNote?(' — '+meal.prepNote.substring(0,30)+(meal.prepNote.length>30?'...':'')):'') : meal.prepNote.substring(0,40)}</div>` : ''}
           </div>
         </div>`;
       } else {
-        html += `<div style="display:grid;grid-template-columns:38px 1fr;gap:6px;margin-bottom:4px;align-items:center;">
-          <div style="text-align:right;"><div style="font-size:10px;font-weight:700;color:var(--muted);">${DAY_SHORT[d]}</div><div style="font-size:9px;color:var(--border-dark,#bbb);">${dateLabel}</div></div>
-          <div style="background:var(--light);border-radius:10px;padding:7px 10px;display:flex;align-items:center;justify-content:space-between;min-height:36px;opacity:.65;cursor:pointer;" onclick="openMealEntryModal(${d}, '${wk}')">
-            <span style="font-size:11px;color:var(--muted);font-style:italic;">not planned</span>
-            <i class="ti ti-plus" style="font-size:12px;color:var(--muted);"></i>
+        const todayRing = isToday ? 'box-shadow:0 0 0 1.5px #1E3A2A;' : '';
+        html += `<div style="display:flex;gap:8px;padding:9px 10px;margin-bottom:6px;background:var(--light);border:0.5px solid var(--border);border-radius:10px;${todayRing}cursor:pointer;" onclick="openMealEntryModal(${d}, '${wk}')">
+          <div style="text-align:center;flex-shrink:0;min-width:30px;">
+            <div style="font-size:9px;font-weight:700;color:var(--muted);">${DAY_SHORT[d].toUpperCase()}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--muted);margin-top:1px;">${dayDate.getDate()}</div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:12px;color:var(--muted);font-style:italic;">Not planned</span>
+            <i class="ti ti-plus" style="font-size:14px;color:var(--muted);"></i>
           </div>
         </div>`;
       }
@@ -2993,7 +3031,6 @@ function renderGroceryTabContent() {
 
     content.innerHTML = html;
 
-
   } else if (groceryTab === 'recipes') {
     const mealWeekOffset = window._mealWeekOffset || 0;
     const sun = currentWeekSunday();
@@ -3007,19 +3044,24 @@ function renderGroceryTabContent() {
       const ingList = (r.ingredients || []).map(i => typeof i === 'string' ? i : (i.name || '')).filter(Boolean).slice(0,3).join(', ');
       const meta = [r.category, r.servings ? r.servings + ' servings' : ''].filter(Boolean).join(' · ');
       html += `
-        <div class="recipe-chip ${inPlan ? 'selected' : ''}" style="display:flex;align-items:center;gap:8px;">
-          <div style="flex:1;" onclick="openEditRecipeById('${r.id}')">
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <div class="recipe-name">${r.name}</div>
-              ${inPlan ? `<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:#EFF5ED;color:#1a2e1b;">this week</span>` : ''}
+        <div class="recipe-chip ${inPlan ? 'selected' : ''}" style="display:block;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;" onclick="openRecipeViewModal('${r.id}')">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <div class="recipe-name">${r.name}</div>
+                ${inPlan ? `<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:#EFF5ED;color:#1a2e1b;">this week</span>` : ''}
+              </div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">${meta}</div>
+              <div style="font-size:11px;color:var(--muted);">${ingList}${r.ingredients.length > 3 ? '...' : ''}</div>
             </div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px;">${meta}</div>
-            <div style="font-size:11px;color:var(--muted);">${ingList}${r.ingredients.length > 3 ? '...' : ''}</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+              <div class="recipe-cost">${fmt(r.cost)}</div>
+              <button onclick="event.stopPropagation();openEditRecipeById('${r.id}')" style="color:var(--muted);padding:4px;font-size:16px;" aria-label="Edit recipe"><i class="ti ti-pencil"></i></button>
+            </div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-            <div class="recipe-cost">${fmt(r.cost)}</div>
-            <button onclick="event.stopPropagation();openEditRecipeById('${r.id}')" style="color:var(--muted);padding:4px;font-size:16px;"><i class="ti ti-pencil"></i></button>
-          </div>
+          <button onclick="event.stopPropagation();openPlanThisModal('${r.id}')" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:#EFF5ED;color:#2D5F2D;border:0.5px solid #C5DBC1;border-radius:14px;font-size:11px;font-weight:600;margin-top:8px;">
+            <i class="ti ti-calendar-plus" style="font-size:13px;" aria-hidden="true"></i>Plan this
+          </button>
         </div>`;
     });
     html += `</div>
@@ -3053,6 +3095,7 @@ function renderGroceryTabContent() {
   } else if (groceryTab === 'list') {
     const planL = data.weeklyPlan[pKey] || { selectedRecipes: [], checkedStaples: [] };
     const checkedStaples = planL.checkedStaples || [];
+    const itemStatus = planL.itemStatus || {};
     const mealWeekOffsetL = window._mealWeekOffset || 0;
     const sunL = currentWeekSunday();
     const viewSunL = new Date(sunL); viewSunL.setDate(sunL.getDate() + mealWeekOffsetL * 7);
@@ -3062,22 +3105,31 @@ function renderGroceryTabContent() {
     // Checked staples only
     const checkedStapleItems = data.staples.filter(s => checkedStaples.includes(s.id || s));
 
-    // Recipe ingredients (deduplicated against staples)
+    // Recipe ingredients, aggregated by name (deduplicated against staples)
     const stapleNames = checkedStapleItems.map(s => (s.name || s).toLowerCase());
-    const recipeItems = [];
+    const recipeItemMap = {};
     selectedRecipes.forEach(r => {
       (r.ingredients || []).forEach(ing => {
         const ingName = typeof ing === 'string' ? ing : ing.name;
         const ingPrice = typeof ing === 'object' ? (ing.price || 0) : 0;
-        if (!stapleNames.includes(ingName.toLowerCase())) {
-          recipeItems.push({ name: ingName, price: ingPrice, source: r.name });
-        }
+        const key = ingName.toLowerCase();
+        if (stapleNames.includes(key)) return;
+        if (!recipeItemMap[key]) recipeItemMap[key] = { name: ingName, price: 0, sources: [] };
+        recipeItemMap[key].price += ingPrice;
+        if (!recipeItemMap[key].sources.includes(r.name)) recipeItemMap[key].sources.push(r.name);
       });
     });
+    const recipeItems = Object.values(recipeItemMap);
 
-    // Subtotal
-    const stapleTotal = checkedStapleItems.reduce((s, i) => s + (i.price || 0), 0);
-    const recipeTotal = recipeItems.reduce((s, i) => s + (i.price || 0), 0);
+    // Subtotal — purchased items count toward spend, pantry items are excluded (nothing bought)
+    const stapleTotal = checkedStapleItems.reduce((s, i) => {
+      const key = (i.name || i).toLowerCase();
+      return itemStatus[key] === 'pantry' ? s : s + (i.price || 0);
+    }, 0);
+    const recipeTotal = recipeItems.reduce((s, i) => {
+      const key = i.name.toLowerCase();
+      return itemStatus[key] === 'pantry' ? s : s + (i.price || 0);
+    }, 0);
     const listTotal = stapleTotal + recipeTotal;
     const foodRemaining = (() => {
       const pMidD = new Date(currentPeriodStart()); pMidD.setDate(pMidD.getDate() + 7);
@@ -3092,13 +3144,8 @@ function renderGroceryTabContent() {
     if (checkedStapleItems.length > 0) {
       html += `<div class="card"><div class="section-head"><div class="section-head-title">Staples</div></div>`;
       checkedStapleItems.forEach(s => {
-        html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:0.5px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <input type="checkbox" style="width:18px;height:18px;accent-color:var(--food);flex-shrink:0;">
-            <span style="font-size:14px;">${s.name}${s.brand ? ' <span style="font-size:11px;color:var(--muted);">'+s.brand+'</span>' : ''}</span>
-          </div>
-          <span style="font-size:13px;color:var(--muted);">${s.price ? fmt(s.price) : ''}</span>
-        </div>`;
+        const key = (s.name || s).toLowerCase();
+        html += renderShoppingItemRow(key, s.name + (s.brand ? ` <span style="font-size:11px;color:var(--muted);">${s.brand}</span>` : ''), null, s.price, itemStatus[key]);
       });
       html += `</div>`;
     }
@@ -3107,13 +3154,11 @@ function renderGroceryTabContent() {
     if (recipeItems.length > 0) {
       html += `<div class="card"><div class="section-head"><div class="section-head-title">From Recipes</div></div>`;
       recipeItems.forEach(item => {
-        html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:0.5px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <input type="checkbox" style="width:18px;height:18px;accent-color:var(--food);flex-shrink:0;">
-            <div><div style="font-size:14px;">${item.name}</div><div style="font-size:11px;color:var(--muted);">${item.source}</div></div>
-          </div>
-          <span style="font-size:13px;color:var(--muted);">${item.price ? fmt(item.price) : ''}</span>
-        </div>`;
+        const key = item.name.toLowerCase();
+        const sourceLabel = item.sources.length > 1
+          ? `<strong>in ${item.sources.length} recipes</strong>`
+          : item.sources[0];
+        html += renderShoppingItemRow(key, item.name, sourceLabel, item.price, itemStatus[key]);
       });
       html += `</div>`;
     }
@@ -3151,7 +3196,6 @@ function renderGroceryTabContent() {
     html += `</div>`;
 
     // ── Subtotal + budget comparison ──
-    const dfTotal = (data.dontForget || []).filter(i => !i.checked).length > 0 ? 0 : 0; // no prices on df items
     if (checkedStapleItems.length > 0 || recipeItems.length > 0 || (data.dontForget||[]).filter(i=>!i.checked).length > 0) {
       html += `<div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -3172,7 +3216,56 @@ function renderGroceryTabContent() {
   }
 }
 
+function renderShoppingItemRow(key, nameHtml, subtitleHtml, price, status) {
+  const isPurchased = status === 'purchased';
+  const isPantry = status === 'pantry';
+  const rowBg = isPantry ? '#EFF5ED' : 'transparent';
+  const rowBorder = isPantry ? '#C5DBC1' : 'var(--border)';
+  const nameStyle = isPurchased
+    ? 'font-size:14px;text-decoration:line-through;color:var(--muted);'
+    : isPantry
+      ? 'font-size:14px;font-weight:600;color:#1E3A2A;'
+      : 'font-size:14px;';
+  const subtitle = isPantry
+    ? '<span style="font-size:11px;color:#3B6D11;font-weight:600;">Already in pantry</span>'
+    : (subtitleHtml ? `<span style="font-size:11px;color:var(--muted);${isPurchased?'text-decoration:line-through;':''}">${subtitleHtml}</span>` : '');
+  const pantryBtnStyle = isPantry
+    ? 'background:#2D5F2D;border:none;padding:3px;border-radius:5px;color:#fff;'
+    : 'background:none;border:none;padding:2px;color:var(--muted);' + (isPurchased ? 'opacity:0.4;' : '');
+  const checkboxDisabled = isPantry ? 'disabled' : '';
+  const checkboxOpacity = isPantry ? 'opacity:0.4;' : '';
+  return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 4px;border-bottom:0.5px solid ${rowBorder};background:${rowBg};">
+    <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
+      <input type="checkbox" ${isPurchased ? 'checked' : ''} ${checkboxDisabled} onchange="togglePurchased('${key}')" style="width:18px;height:18px;accent-color:#2D5F2D;flex-shrink:0;${checkboxOpacity}">
+      <div style="min-width:0;">
+        <div style="${nameStyle}">${nameHtml}</div>
+        ${subtitle ? `<div>${subtitle}</div>` : ''}
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <button onclick="togglePantry('${key}')" ${isPurchased ? 'disabled' : ''} style="${pantryBtnStyle}" aria-label="Mark already in pantry"><i class="ti ti-home" style="font-size:16px;"></i></button>
+      <span style="font-size:13px;color:${isPantry ? '#5A7D5A' : 'var(--muted)'};">${price ? fmt(price) : ''}</span>
+    </div>
+  </div>`;
+}
 
+function setItemStatus(key, status) {
+  const data = db();
+  const pKey = periodKey(currentPeriodStart());
+  if (!data.weeklyPlan[pKey]) data.weeklyPlan[pKey] = { selectedRecipes: [], checkedStaples: [] };
+  if (!data.weeklyPlan[pKey].itemStatus) data.weeklyPlan[pKey].itemStatus = {};
+  const current = data.weeklyPlan[pKey].itemStatus[key];
+  if (current === status) {
+    delete data.weeklyPlan[pKey].itemStatus[key];
+  } else {
+    data.weeklyPlan[pKey].itemStatus[key] = status;
+  }
+  save(data);
+  renderGroceryTabContent();
+}
+
+function togglePurchased(key) { setItemStatus(key, 'purchased'); }
+function togglePantry(key) { setItemStatus(key, 'pantry'); }
 
 function saveGroceryLog() {
   const data = db();
@@ -3306,7 +3399,6 @@ function copyList() {
   const all = sections.join('\n\n');
   navigator.clipboard.writeText(all).then(() => toast('List copied!'));
 }
-
 
 // ─── TOAST ────────────────────────────────────────────────────────
 function toast(msg) {
@@ -3521,12 +3613,69 @@ function openMealEntryModal(dayIndex, wKey) {
   const assignees = data.assignees || ['Chris','Maddie'];
   cookSel.innerHTML = `<option value="">Anyone</option>` + assignees.map(a => `<option value="${a}" ${existing&&existing.cook===a?'selected':''}>${a}</option>`).join('');
   if (existing && existing.cook) cookSel.value = existing.cook;
-  // Recipe dropdown
-  const recSel = document.getElementById('meal-entry-recipe');
-  recSel.innerHTML = `<option value="">No recipe linked</option>` + (data.recipes||[]).map(r => `<option value="${r.id}" ${existing&&existing.recipeId===r.id?'selected':''}>${r.name}</option>`).join('');
-  if (existing && existing.recipeId) recSel.value = existing.recipeId;
+  // Recipe picker
+  const preselectedRecipe = existing && existing.recipeId ? data.recipes.find(r => r.id === existing.recipeId) : null;
+  document.getElementById('meal-entry-recipe').value = preselectedRecipe ? preselectedRecipe.id : '';
+  document.getElementById('mer-search').value = '';
+  const selWrap = document.getElementById('mer-selected');
+  if (preselectedRecipe) {
+    document.getElementById('mer-selected-name').textContent = preselectedRecipe.name;
+    selWrap.style.display = 'flex';
+  } else {
+    selWrap.style.display = 'none';
+  }
+  document.getElementById('mer-results').innerHTML = '';
   document.getElementById('meal-entry-delete-btn').style.display = existing ? 'block' : 'none';
   openModal('modal-meal-entry');
+}
+
+function getRecipeRecencyMap(data) {
+  const recency = {};
+  Object.entries(data.mealPlan || {}).forEach(([wk, entries]) => {
+    (entries || []).forEach(m => {
+      if (!m.recipeId) return;
+      if (!recency[m.recipeId] || wk > recency[m.recipeId]) recency[m.recipeId] = wk;
+    });
+  });
+  return recency;
+}
+
+function renderMealEntryRecipeResults(query) {
+  const data = db();
+  const q = (query || '').trim().toLowerCase();
+  const recency = getRecipeRecencyMap(data);
+  let matches = (data.recipes || []).filter(r => !q || r.name.toLowerCase().includes(q));
+  matches.sort((a, b) => {
+    const ra = recency[a.id] || '';
+    const rb = recency[b.id] || '';
+    if (ra !== rb) return rb.localeCompare(ra);
+    return a.name.localeCompare(b.name);
+  });
+  const resultsEl = document.getElementById('mer-results');
+  if (matches.length === 0) {
+    resultsEl.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:6px 2px;">No recipes match.</div>`;
+    return;
+  }
+  resultsEl.innerHTML = matches.map(r => `
+    <div onclick="selectMealEntryRecipe('${r.id}')" style="padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px;" onmouseover="this.style.background='var(--light)'" onmouseout="this.style.background='transparent'">
+      ${r.name}${recency[r.id] ? ` <span style="font-size:10px;color:var(--muted);">recently used</span>` : ''}
+    </div>`).join('');
+}
+
+function selectMealEntryRecipe(recipeId) {
+  const data = db();
+  const r = data.recipes.find(x => x.id === recipeId);
+  if (!r) return;
+  document.getElementById('meal-entry-recipe').value = recipeId;
+  document.getElementById('mer-selected-name').textContent = r.name;
+  document.getElementById('mer-selected').style.display = 'flex';
+  document.getElementById('mer-search').value = '';
+  document.getElementById('mer-results').innerHTML = '';
+}
+
+function clearMealEntryRecipe() {
+  document.getElementById('meal-entry-recipe').value = '';
+  document.getElementById('mer-selected').style.display = 'none';
 }
 function saveMealEntry() {
   const day = parseInt(document.getElementById('meal-entry-day').value);
@@ -3618,7 +3767,6 @@ function saveWeekNotes(key, val) {
   save(data);
 }
 
-
 // ─── RECIPE CRUD ──────────────────────────────────────────────────
 function recalcRecipeCost() {
   const rows = Array.from(document.querySelectorAll('#ing-rows .ing-row'));
@@ -3709,6 +3857,171 @@ function openEditRecipeById(id) {
   const r = data.recipes.find(x => x.id === id);
   if (!r) return;
   openRecipeModal(r);
+}
+
+// ─── RECIPE VIEW (read-only, for cooking reference) ────────────────
+function openRecipeViewModal(id) {
+  const data = db();
+  const r = data.recipes.find(x => x.id === id);
+  if (!r) return;
+
+  const modal = document.getElementById('modal-recipe-view');
+  modal.dataset.rid = id;
+
+  document.getElementById('rv-name').textContent = r.name || '';
+  const meta = [r.category, (r.servings || 4) + ' servings', r.cost ? fmt(parseFloat(r.cost)) : ''].filter(Boolean).join(' · ');
+  document.getElementById('rv-meta').textContent = meta;
+
+  const ings = (r.ingredients || []).map(i => typeof i === 'string' ? { name: i } : (i || {}));
+  document.getElementById('rv-ingredients').innerHTML = ings
+    .filter(i => i.name)
+    .map(i => rvIngredientLine(i))
+    .join('<br>');
+
+  const steps = (r.steps || []).map(s => typeof s === 'string' ? s : (s.text || '')).filter(Boolean);
+  document.getElementById('rv-steps').innerHTML = steps.map((s, i) => `
+    <div class="rv-step" data-idx="${i}" onclick="rvToggleStep(this)" style="display:flex;gap:10px;margin-bottom:12px;cursor:pointer;">
+      <div class="rv-step-circle" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</div>
+      <div style="font-size:14px;line-height:1.6;padding-top:1px;">${s}</div>
+    </div>`).join('');
+
+  const notesWrap = document.getElementById('rv-notes-wrap');
+  if (r.notes) {
+    document.getElementById('rv-notes').textContent = 'Notes: ' + r.notes;
+    notesWrap.style.display = 'block';
+  } else {
+    notesWrap.style.display = 'none';
+  }
+
+  openModal('modal-recipe-view');
+}
+
+function rvIngredientLine(ing) {
+  const name = ing.name || '';
+  const qty = (ing.qty || '').trim();
+  return qty ? qty + ' ' + name : name;
+}
+
+function rvToggleStep(el) {
+  const circle = el.querySelector('.rv-step-circle');
+  const done = el.classList.toggle('rv-done');
+  if (done) {
+    circle.style.background = 'var(--food-l, #EFF5ED)';
+    circle.style.borderColor = 'var(--food, #2D5F2D)';
+    circle.style.color = 'var(--food, #2D5F2D)';
+  } else {
+    circle.style.background = 'none';
+    circle.style.borderColor = 'var(--border)';
+    circle.style.color = 'var(--muted)';
+  }
+}
+
+function closeRecipeViewModal() {
+  closeModal('modal-recipe-view');
+}
+
+function closeRecipeViewModalOutside(e) {
+  if (e.target === document.getElementById('modal-recipe-view')) closeRecipeViewModal();
+}
+
+// ─── PLAN THIS (day picker from Recipes tab) ────────────────────────
+function openPlanThisModal(recipeId) {
+  const data = db();
+  const r = data.recipes.find(x => x.id === recipeId);
+  if (!r) return;
+
+  const modal = document.getElementById('modal-plan-this');
+  modal.dataset.recipeId = recipeId;
+  document.getElementById('pt-recipe-name').textContent = r.name || '';
+  document.getElementById('pt-confirm-wrap').style.display = 'none';
+
+  renderPlanThisGrid();
+  openModal('modal-plan-this');
+}
+
+function renderPlanThisGrid() {
+  const data = db();
+  const modal = document.getElementById('modal-plan-this');
+  const recipeId = modal.dataset.recipeId;
+  const sun = currentWeekSunday();
+  const wk = weekKey(sun);
+  modal.dataset.wk = wk;
+  const weekPlan = (data.mealPlan || {})[wk] || [];
+  const todayIdx = new Date().getDay();
+
+  let html = '';
+  for (let d = 0; d < 7; d++) {
+    const dayDate = new Date(sun); dayDate.setDate(sun.getDate() + d);
+    const meal = weekPlan.find(m => m.day === d) || null;
+    const isToday = d === todayIdx;
+    const todayRing = isToday ? 'box-shadow:0 0 0 1.5px #1E3A2A;' : '';
+    let bg = 'var(--light)', border = 'var(--border)', color = 'var(--text)';
+    let sub = '';
+    if (meal) {
+      const isOut = meal.type === 'out';
+      bg = isOut ? '#FAEEDA' : '#EFF5ED';
+      border = isOut ? '#EF9F27' : '#2D5F2D';
+      color = isOut ? '#854F0B' : '#1E3A2A';
+      const label = isOut ? 'Eating out' : (meal.name || '');
+      sub = `<div style="font-size:8px;color:${color};margin-top:3px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</div>`;
+    }
+    html += `<div onclick="handlePlanThisTap(${d})" style="text-align:center;padding:8px 4px;background:${bg};border:0.5px solid ${border};border-radius:8px;min-height:52px;${todayRing}cursor:pointer;">
+      <div style="font-size:9px;font-weight:500;color:${color};">${DAY_SHORT[d].toUpperCase()}</div>
+      <div style="font-size:13px;color:${color};margin-top:2px;">${dayDate.getDate()}</div>
+      ${sub}
+    </div>`;
+  }
+  document.getElementById('pt-grid').innerHTML = html;
+}
+
+function handlePlanThisTap(dayIndex) {
+  const data = db();
+  const modal = document.getElementById('modal-plan-this');
+  const recipeId = modal.dataset.recipeId;
+  const wk = modal.dataset.wk;
+  const recipe = data.recipes.find(x => x.id === recipeId);
+  if (!recipe) return;
+
+  const existing = getMealForDay(data, dayIndex, wk);
+
+  if (!existing) {
+    writePlanThisEntry(dayIndex, wk, recipe);
+    return;
+  }
+
+  if (existing.recipeId === recipeId) {
+    toast('Already planned for ' + DAY_NAMES[dayIndex] + ' — nothing changed.');
+    return;
+  }
+
+  const confirmWrap = document.getElementById('pt-confirm-wrap');
+  confirmWrap.innerHTML = `<div style="background:#FAEEDA;border:0.5px solid #EF9F27;border-radius:10px;padding:12px;margin-bottom:10px;">
+    <div style="font-size:13px;color:#854F0B;font-weight:600;margin-bottom:2px;">${DAY_NAMES[dayIndex]} is already planned</div>
+    <div style="font-size:12px;color:#854F0B;margin-bottom:10px;">Currently: ${existing.name || 'Eating out'}</div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="document.getElementById('pt-confirm-wrap').style.display='none';" style="flex:1;padding:9px;background:none;border:0.5px solid var(--border-dark,#ccc);border-radius:8px;font-size:12px;font-weight:600;">Cancel</button>
+      <button onclick="writePlanThisEntry(${dayIndex}, '${wk}', '${recipeId}')" style="flex:1;padding:9px;background:#D9772E;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;">Replace with this recipe</button>
+    </div>
+  </div>`;
+  confirmWrap.style.display = 'block';
+}
+
+function writePlanThisEntry(dayIndex, wk, recipeIdOrObj) {
+  const recipe = typeof recipeIdOrObj === 'string' ? db().recipes.find(x => x.id === recipeIdOrObj) : recipeIdOrObj;
+  if (!recipe) return;
+  const entry = { day: dayIndex, name: recipe.name, type: 'cook', cook: '', prepNote: '', recipeId: recipe.id };
+  saveMealPlanEntry(entry, wk);
+  document.getElementById('pt-confirm-wrap').style.display = 'none';
+  toast(recipe.name + ' planned for ' + DAY_NAMES[dayIndex] + '.');
+  renderPlanThisGrid();
+}
+
+function closePlanThisModal() {
+  closeModal('modal-plan-this');
+}
+
+function closePlanThisModalOutside(e) {
+  if (e.target === document.getElementById('modal-plan-this')) closePlanThisModal();
 }
 
 function addIngRow(d) {
@@ -3836,8 +4149,65 @@ function renderHistory() {
     }
   }
 
+  const today = new Date(); today.setHours(0,0,0,0);
+  const currentYear = today.getFullYear();
+
+  // Completed periods only: period end must be strictly before today.
+  // Used for Avg/Period and Saved YTD — never the in-progress period.
+  const completedPeriods = periods.filter(pStart => {
+    const pEnd = isMonthly
+      ? new Date(pStart.getFullYear(), pStart.getMonth() + 1, 0)
+      : (() => { const e = new Date(pStart); e.setDate(pStart.getDate() + PERIOD_DAYS - 1); return e; })();
+    return pEnd < today;
+  });
+
+  let avgPerPeriod = 0;
+  let savedYTD = 0;
+  let ytdMonthsElapsed = 0;
+  if (completedPeriods.length > 0) {
+    const totals = completedPeriods.map(pStart => {
+      const pKey = isMonthly ? monthPeriodKey(pStart) : periodKey(pStart);
+      const spent = getSpendForPeriod(data, pKey);
+      return Object.values(spent).reduce((s,v) => s+v, 0);
+    });
+    avgPerPeriod = totals.reduce((s,v) => s+v, 0) / totals.length;
+
+    const totalBudget = (data.categories || DEFAULT_CATEGORIES)
+      .filter(c => !c.parentId && c.id !== 'meals_out')
+      .reduce((s,c) => s + (c.budget||0), 0);
+
+    const ytdPeriods = completedPeriods.filter(pStart => pStart.getFullYear() === currentYear);
+    ytdPeriods.forEach(pStart => {
+      const pKey = isMonthly ? monthPeriodKey(pStart) : periodKey(pStart);
+      const spent = getSpendForPeriod(data, pKey);
+      const total = Object.values(spent).reduce((s,v) => s+v, 0);
+      savedYTD += (totalBudget - total);
+    });
+    if (ytdPeriods.length > 0) {
+      const earliestYtd = ytdPeriods.reduce((min, p) => p < min ? p : min, ytdPeriods[0]);
+      ytdMonthsElapsed = Math.max(1, Math.round((today - earliestYtd) / (1000*60*60*24*30.44)));
+    }
+  }
+
   const histEl = document.getElementById('history-content');
   let html = '';
+
+  if (completedPeriods.length > 0) {
+    const ytdColor = savedYTD >= 0 ? '#2D5F2D' : '#D9772E';
+    const ytdSign = savedYTD >= 0 ? '+' : '';
+    html += `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:0 2px;">As of last completed period</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div style="background:var(--card-bg,#fff);border-radius:12px;padding:14px;border:1px solid var(--border);">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Avg per period</div>
+        <div style="font-size:22px;font-weight:700;color:var(--text);">${fmt(avgPerPeriod)}</div>
+      </div>
+      <div style="background:var(--card-bg,#fff);border-radius:12px;padding:14px;border:1px solid var(--border);">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Saved YTD</div>
+        <div style="font-size:22px;font-weight:700;color:${ytdColor};">${ytdSign}${fmt(Math.abs(savedYTD))}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">${ytdMonthsElapsed} mo</div>
+      </div>
+    </div>`;
+  }
 
   periods.reverse().forEach(pStart => {
     const pKey = isMonthly ? monthPeriodKey(pStart) : periodKey(pStart);
@@ -3847,6 +4217,14 @@ function renderHistory() {
     const txnCount = data.transactions.filter(t => t.periodKey === pKey).length
                    + (data.scheduledCharges || []).filter(c => c.periodKey === pKey).length;
     if (total === 0 && txnCount === 0) return;
+
+    const totalBudget = (data.categories || DEFAULT_CATEGORIES)
+      .filter(c => !c.parentId && c.id !== 'meals_out')
+      .reduce((s,c) => s + (c.budget||0), 0);
+    const delta = totalBudget - total;
+    const deltaColor = delta >= 0 ? '#2D5F2D' : '#D9772E';
+    const deltaSign = delta >= 0 ? '+' : '-';
+    const deltaHtml = totalBudget > 0 ? `<div style="font-size:12px;font-weight:600;color:${deltaColor};margin-top:1px;">${deltaSign}${fmt(Math.abs(delta))}</div>` : '';
 
     const catBars = Object.entries(getCats())
       .filter(([k,c]) => !c.parentId && k !== 'meals_out' && (spent[k]||0) > 0)
@@ -3870,7 +4248,8 @@ function renderHistory() {
         </div>
         <div style="text-align:right;">
           <div style="font-size:18px;font-weight:700;color:var(--text);">${fmt(total)}</div>
-          <i class="ti ti-chevron-right" style="color:var(--muted);font-size:14px;"></i>
+          ${deltaHtml}
+          <i class="ti ti-chevron-right" style="color:var(--muted);font-size:14px;margin-top:2px;"></i>
         </div>
       </div>
       ${catBars}
@@ -4091,8 +4470,6 @@ function renderCategoryRows() {
   });
   return html || '<div style="font-size:13px;color:var(--muted);padding:8px 0;">No categories yet.</div>';
 }
-
-
 
 function clearData() {
   if (!confirm('This will delete ALL transactions, logs, recipes, and settings. Are you sure?')) return;
@@ -4531,47 +4908,6 @@ function updateFixedCatOptions() {} // called on change, no-op for now
 
 // ─── CATEGORY MANAGEMENT ─────────────────────────────────────────
 let editingCatId = null;
-
-function renderCategorySettings() {
-  const data = db();
-  const cats = getCats();
-  const topLevel = (data.categories||DEFAULT_CATEGORIES).filter(c => !c.parentId);
-
-  let html = `<div class="card settings-section">
-    <div class="section-head">
-      <div class="settings-label">Budget Categories</div>
-      <button class="link-btn" onclick="openAddCategory()">+ New</button>
-    </div>`;
-
-  topLevel.forEach(catDef => {
-    const palette = COLOR_PALETTE.find(p => p.id === catDef.colorId) || COLOR_PALETTE[0];
-    const subs = (data.categories||DEFAULT_CATEGORIES).filter(c => c.parentId === catDef.id);
-    html += `<div style="padding:10px 0;border-bottom:0.5px solid var(--border);">
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div style="width:12px;height:12px;border-radius:50%;background:${palette.color};flex-shrink:0;"></div>
-          <div>
-            <div style="font-size:14px;font-weight:500;">${catDef.label}</div>
-            <div style="font-size:11px;color:var(--muted);">${catDef.type === 'recurring' ? 'Scheduled · ' : 'Manual · '}${catDef.budget > 0 ? fmt(catDef.budget)+' budget' : 'no budget'}</div>
-          </div>
-        </div>
-        <button class="link-btn" onclick="openEditCategory('${catDef.id}')">Edit</button>
-      </div>
-      ${subs.map(s => {
-        const sp = COLOR_PALETTE.find(p => p.id === s.colorId) || palette;
-        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 0 20px;">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:${sp.color};"></div>
-            <span style="font-size:12px;color:var(--muted);">↳ ${s.label}</span>
-          </div>
-          <button class="link-btn" style="font-size:11px;" onclick="openEditCategory('${s.id}')">Edit</button>
-        </div>`;
-      }).join('')}
-    </div>`;
-  });
-  html += `</div>`;
-  return html;
-}
 
 function openAddCategory() {
   editingCatId = null;
@@ -5209,9 +5545,6 @@ function updateFab(view) {
 
 // ─── AI FEATURES ─────────────────────────────────────────────────
 
-
-
-
 // ─── SCHEDULED CHARGE ENGINE ─────────────────────────────────────
 
 function generateScheduledCharges() {
@@ -5329,7 +5662,6 @@ function generateScheduledCharges() {
   if (changed) save(data);
   return changed;
 }
-
 
 function toggleScheduledChargePaid(id) {
   const data = db();
@@ -5630,9 +5962,13 @@ async function checkForUpdate() {
       </div>
       <div class="form-field">
         <label class="form-label">Link a recipe <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;">— optional</span></label>
-        <select class="form-input" id="meal-entry-recipe">
-          <option value="">No recipe linked</option>
-        </select>
+        <input type="hidden" id="meal-entry-recipe">
+        <div id="mer-selected" style="background:var(--food-l);border:1px solid var(--food);border-radius:10px;padding:8px 10px;margin-bottom:6px;display:none;align-items:center;justify-content:space-between;">
+          <span id="mer-selected-name" style="font-size:13px;font-weight:600;color:var(--food-d);"></span>
+          <button onclick="clearMealEntryRecipe()" style="background:none;border:none;color:var(--food-d);padding:2px;" aria-label="Clear selected recipe"><i class="ti ti-x"></i></button>
+        </div>
+        <input type="text" class="form-input" id="mer-search" placeholder="Search recipes..." oninput="renderMealEntryRecipeResults(this.value)" onfocus="renderMealEntryRecipeResults(this.value)">
+        <div id="mer-results" style="max-height:180px;overflow-y:auto;margin-top:6px;"></div>
       </div>
       <button class="btn btn-primary" onclick="saveMealEntry()">Save</button>
       <button class="btn btn-danger" id="meal-entry-delete-btn" style="display:none;" onclick="deleteMealEntry()">Remove</button>
