@@ -743,6 +743,14 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     <div class="modal">
       <div class="modal-handle"></div>
       <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Plan this &middot; <span id="pt-recipe-name"></span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button class="link-btn" style="font-size:16px;padding:0 4px;color:#1a2e1b;" onclick="adjustPlanThisWeek(-1)">&#8249;</button>
+          <div id="pt-week-label" style="font-size:13px;font-weight:600;color:#1a2e1b;"></div>
+          <button class="link-btn" style="font-size:16px;padding:0 4px;color:#1a2e1b;" onclick="adjustPlanThisWeek(1)">&#8250;</button>
+        </div>
+      </div>
+      <div id="pt-week-range" style="font-size:10px;color:var(--muted);text-align:right;margin-bottom:8px;"></div>
       <div id="pt-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:10px;"></div>
       <div style="display:flex;gap:12px;font-size:10px;color:var(--muted);margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:4px;"><div style="width:7px;height:7px;border-radius:50%;background:#2D5F2D;"></div>Planned</div>
@@ -3381,16 +3389,32 @@ function copyList() {
   const data = db();
   const pKey = periodKey(currentPeriodStart());
   const plan = data.weeklyPlan[pKey] || { selectedRecipes: [], checkedStaples: [] };
+  const itemStatus = plan.itemStatus || {};
   const checkedStaples = plan.checkedStaples || [];
   const checkedItems = data.staples.filter(s => checkedStaples.includes(s.id || s));
-  const stapleNames = checkedItems.map(s => s.name || s);
-  const recipeItems = [];
-  (plan.selectedRecipes || []).map(id => data.recipes.find(r => r.id === id)).filter(Boolean).forEach(r => {
+  const stapleNames = checkedItems
+    .filter(s => itemStatus[(s.name || s).toLowerCase()] !== 'pantry')
+    .map(s => s.name || s);
+
+  const mealWeekOffsetCL = window._mealWeekOffset || 0;
+  const sunCL = currentWeekSunday();
+  const viewSunCL = new Date(sunCL); viewSunCL.setDate(sunCL.getDate() + mealWeekOffsetCL * 7);
+  const wkCL = weekKey(viewSunCL);
+  const selectedRecipes = getMealPlanRecipes(data, wkCL);
+
+  const stapleNamesLower = stapleNames.map(s => s.toLowerCase());
+  const recipeItemSet = new Set();
+  selectedRecipes.forEach(r => {
     (r.ingredients || []).forEach(ing => {
       const n = typeof ing === 'string' ? ing : ing.name;
-      if (!stapleNames.map(s=>s.toLowerCase()).includes(n.toLowerCase())) recipeItems.push(n);
+      const key = n.toLowerCase();
+      if (stapleNamesLower.includes(key)) return;
+      if (itemStatus[key] === 'pantry') return;
+      recipeItemSet.add(n);
     });
   });
+  const recipeItems = Array.from(recipeItemSet);
+
   const dontForgetItems = (data.dontForget || []).filter(i => !i.checked).map(i => i.name);
   const sections = [];
   if (stapleNames.length) sections.push('Staples:\n' + stapleNames.join('\n'));
@@ -3932,6 +3956,7 @@ function openPlanThisModal(recipeId) {
 
   const modal = document.getElementById('modal-plan-this');
   modal.dataset.recipeId = recipeId;
+  modal.dataset.weekOffset = '0';
   document.getElementById('pt-recipe-name').textContent = r.name || '';
   document.getElementById('pt-confirm-wrap').style.display = 'none';
 
@@ -3939,15 +3964,31 @@ function openPlanThisModal(recipeId) {
   openModal('modal-plan-this');
 }
 
+function adjustPlanThisWeek(delta) {
+  const modal = document.getElementById('modal-plan-this');
+  const current = parseInt(modal.dataset.weekOffset || '0');
+  modal.dataset.weekOffset = String(current + delta);
+  document.getElementById('pt-confirm-wrap').style.display = 'none';
+  renderPlanThisGrid();
+}
+
 function renderPlanThisGrid() {
   const data = db();
   const modal = document.getElementById('modal-plan-this');
   const recipeId = modal.dataset.recipeId;
-  const sun = currentWeekSunday();
+  const offset = parseInt(modal.dataset.weekOffset || '0');
+  const baseSun = currentWeekSunday();
+  const sun = new Date(baseSun); sun.setDate(baseSun.getDate() + offset * 7);
   const wk = weekKey(sun);
   modal.dataset.wk = wk;
   const weekPlan = (data.mealPlan || {})[wk] || [];
-  const todayIdx = new Date().getDay();
+  const todayIdx = offset === 0 ? new Date().getDay() : -1;
+
+  const fmtShortPT = d => { const m = d.getMonth()+1; const day = d.getDate(); return m+'/'+day; };
+  const weekEnd = new Date(sun); weekEnd.setDate(sun.getDate() + 6);
+  document.getElementById('pt-week-label').textContent =
+    offset === 0 ? 'This week' : offset === 1 ? 'Next week' : offset === -1 ? 'Last week' : (offset > 0 ? '+'+offset+' weeks' : offset+' weeks');
+  document.getElementById('pt-week-range').textContent = fmtShortPT(sun) + ' – ' + fmtShortPT(weekEnd);
 
   let html = '';
   for (let d = 0; d < 7; d++) {
@@ -4131,35 +4172,83 @@ function deleteRecipe() {
 }
 
 // ─── HISTORY ─────────────────────────────────────────────────────
+function getPeriodsForYear(year, isMonthly, todayCap) {
+  const periods = [];
+  if (isMonthly) {
+    let m = 0;
+    while (true) {
+      const s = new Date(year, m, 1);
+      if (s.getFullYear() !== year) break;
+      if (todayCap && s > todayCap) break;
+      periods.push(s);
+      m++;
+    }
+  } else {
+    // Anchor off the actual current period boundary so period edges stay
+    // consistent with the rest of the app, then walk backward/forward to
+    // cover the target year.
+    const anchor = currentPeriodStart();
+    let s = new Date(anchor);
+    // Walk back until we're before Jan 1 of the target year
+    while (s.getFullYear() >= year) {
+      s.setDate(s.getDate() - PERIOD_DAYS);
+    }
+    s.setDate(s.getDate() + PERIOD_DAYS);
+    while (s.getFullYear() === year) {
+      if (todayCap && s > todayCap) break;
+      periods.push(new Date(s));
+      s.setDate(s.getDate() + PERIOD_DAYS);
+    }
+  }
+  return periods;
+}
+
+function hasDataBeforeYear(data, year, isMonthly) {
+  const earliestPeriods = getPeriodsForYear(year - 1, isMonthly, null);
+  return earliestPeriods.some(pStart => {
+    const pKey = isMonthly ? monthPeriodKey(pStart) : periodKey(pStart);
+    const spent = getSpendForPeriod(data, pKey);
+    const total = Object.values(spent).reduce((s,v) => s+v, 0);
+    const txnCount = data.transactions.filter(t => t.periodKey === pKey).length
+                   + (data.scheduledCharges || []).filter(c => c.periodKey === pKey).length;
+    return total > 0 || txnCount > 0;
+  });
+}
+
 function renderHistory() {
   const data = db();
   const isMonthly = data.periodMode === 'monthly';
-  const periods = [];
-
-  if (isMonthly) {
-    for (let i = -11; i <= 0; i++) {
-      periods.push(monthStart(i));
-    }
-  } else {
-    const current = currentPeriodStart();
-    for (let i = -12; i <= 0; i++) {
-      const s = new Date(current);
-      s.setDate(current.getDate() + i * PERIOD_DAYS);
-      periods.push(s);
-    }
-  }
-
   const today = new Date(); today.setHours(0,0,0,0);
   const currentYear = today.getFullYear();
 
-  // Completed periods only: period end must be strictly before today.
-  // Used for Avg/Period and Saved YTD — never the in-progress period.
-  const completedPeriods = periods.filter(pStart => {
+  const isCompleted = pStart => {
     const pEnd = isMonthly
       ? new Date(pStart.getFullYear(), pStart.getMonth() + 1, 0)
       : (() => { const e = new Date(pStart); e.setDate(pStart.getDate() + PERIOD_DAYS - 1); return e; })();
     return pEnd < today;
-  });
+  };
+
+  const thisYearPeriods = getPeriodsForYear(currentYear, isMonthly, today);
+  const thisYearCompleted = thisYearPeriods.filter(isCompleted);
+  const hasCompletedThisYear = thisYearCompleted.length > 0;
+
+  if (window._historyEarliestYear === undefined || window._historyIsAutoFallback) {
+    // Only auto-manage this while we're in the fallback state the app set,
+    // not once the user has deliberately paged further back.
+    window._historyEarliestYear = hasCompletedThisYear ? currentYear : currentYear - 1;
+    window._historyIsAutoFallback = !hasCompletedThisYear;
+  }
+  const earliestYear = window._historyEarliestYear;
+
+  // Build the full set of periods to display: every year from earliestYear
+  // through currentYear (only currentYear's completed periods count for
+  // "today" purposes; prior years show their full period sets).
+  let periods = [];
+  for (let y = earliestYear; y <= currentYear; y++) {
+    const cap = y === currentYear ? today : null;
+    periods = periods.concat(getPeriodsForYear(y, isMonthly, cap));
+  }
+  const completedPeriods = periods.filter(isCompleted);
 
   let avgPerPeriod = 0;
   let savedYTD = 0;
@@ -4191,6 +4280,12 @@ function renderHistory() {
 
   const histEl = document.getElementById('history-content');
   let html = '';
+
+  if (!hasCompletedThisYear) {
+    html += `<div style="background:#FAEEDA;border:0.5px solid #EF9F27;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#854F0B;">
+      No complete ${isMonthly ? 'month' : 'pay period'} to display yet &mdash; showing ${earliestYear} data.
+    </div>`;
+  }
 
   if (completedPeriods.length > 0) {
     const ytdColor = savedYTD >= 0 ? '#2D5F2D' : '#D9772E';
@@ -4257,7 +4352,18 @@ function renderHistory() {
   });
 
   if (!html) html = `<div class="empty"><i class="ti ti-history"></i><div class="empty-text">No history yet</div></div>`;
+
+  if (hasDataBeforeYear(data, earliestYear, isMonthly)) {
+    html += `<button class="link-btn" style="display:block;text-align:center;margin:12px 0;" onclick="loadPreviousHistoryYear()">See ${earliestYear - 1}</button>`;
+  }
+
   histEl.innerHTML = html;
+}
+
+function loadPreviousHistoryYear() {
+  window._historyEarliestYear = (window._historyEarliestYear || new Date().getFullYear()) - 1;
+  window._historyIsAutoFallback = false;
+  renderHistory();
 }
 
 function showHistoryDetail(pKey) {
