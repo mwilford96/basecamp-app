@@ -261,13 +261,13 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     <!-- DASHBOARD -->
     <div class="view active" id="view-dashboard">
       <div class="page-header" style="position:relative;min-height:70px;display:flex;align-items:stretch;justify-content:center;gap:10px;">
-        <svg id="home-tree-left" width="18" viewBox="0 0 16 22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink:0;align-self:center;">
+        <svg id="home-tree-left" viewBox="0 1 16 21" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink:0;align-self:flex-start;">
           <polygon points="8,1 2,8 14,8" fill="#1a2e1b"/>
           <polygon points="8,6 1,14 15,14" fill="#1a2e1b"/>
           <polygon points="8,11 0,20 16,20" fill="#1a2e1b"/>
           <rect x="7" y="20" width="2" height="2" fill="#1a2e1b"/>
         </svg>
-        <div id="home-header-text" style="text-align:center;min-width:0;">
+        <div id="home-header-text" style="text-align:center;min-width:0;display:flex;flex-direction:column;justify-content:center;">
           <div class="page-title">Base Camp</div>
           <div style="font-size:13px;font-weight:500;color:var(--muted);margin-top:1px;" id="home-names">Chris + Maddie</div>
           <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;">
@@ -276,7 +276,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
           </div>
           <div id="sync-indicator" style="font-size:11px;font-weight:600;margin-top:2px;min-height:14px;"></div>
         </div>
-        <svg id="home-tree-right" width="18" viewBox="0 0 16 22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink:0;align-self:center;">
+        <svg id="home-tree-right" viewBox="0 1 16 21" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink:0;align-self:flex-start;">
           <polygon points="8,1 2,8 14,8" fill="#1a2e1b"/>
           <polygon points="8,6 1,14 15,14" fill="#1a2e1b"/>
           <polygon points="8,11 0,20 16,20" fill="#1a2e1b"/>
@@ -2289,15 +2289,62 @@ function renderDashboard() {
 }
 
 function syncHomeHeaderTreeHeight() {
+  const headerEl = document.querySelector('#view-dashboard .page-header');
   const textEl = document.getElementById('home-header-text');
+  const namesEl = document.getElementById('home-names');
   const leftTree = document.getElementById('home-tree-left');
   const rightTree = document.getElementById('home-tree-right');
-  if (!textEl || !leftTree || !rightTree) return;
-  const h = textEl.offsetHeight;
-  if (h > 0) {
-    leftTree.style.height = h + 'px';
-    rightTree.style.height = h + 'px';
+  if (!headerEl || !textEl || !namesEl || !leftTree || !rightTree) return;
+
+  const ARTWORK_ASPECT = 16 / 21; // matches viewBox="0 1 16 21" — width/height ratio
+  const GAP = 10;
+  const containerWidth = headerEl.clientWidth;
+  const singleLineHeight = parseFloat(getComputedStyle(namesEl).lineHeight) || 18;
+
+  function measureTrueContentHeight() {
+    const children = Array.from(textEl.children);
+    if (children.length === 0) return textEl.offsetHeight;
+    const first = children[0].getBoundingClientRect();
+    const last = children[children.length - 1].getBoundingClientRect();
+    return Math.round(last.bottom - first.top);
   }
+
+  // Reset so measurements reflect true natural content size, not a size
+  // influenced by a previous run of this function or parent stretch effects.
+  leftTree.style.width = '';
+  rightTree.style.width = '';
+  leftTree.style.height = '';
+  rightTree.style.height = '';
+  textEl.style.maxWidth = '';
+  void textEl.offsetHeight;
+
+  // Target height always matches true content extent, so top/bottom stay
+  // aligned with the title and date line regardless of parent stretch effects.
+  const MAX_TREE_HEIGHT = 95;
+  const rawTargetHeight = measureTrueContentHeight();
+  const targetHeight = Math.min(rawTargetHeight, MAX_TREE_HEIGHT);
+  // Width is derived from height via the artwork's true aspect ratio, so the
+  // tree actually fills its assigned height rather than being letterboxed
+  // by an independently-capped width.
+  let treeWidth = targetHeight * ARTWORK_ASPECT;
+
+  // If that width would force the names line to wrap, shrink both
+  // dimensions together (maintaining aspect ratio) until it fits, or
+  // until we hit a sensible minimum and allow the wrap.
+  const MIN_TREE_WIDTH = 18;
+  for (let w = treeWidth; w >= MIN_TREE_WIDTH; w -= 2) {
+    const availableTextWidth = containerWidth - (w * 2) - (GAP * 2) - 8;
+    textEl.style.maxWidth = Math.max(availableTextWidth, 80) + 'px';
+    void namesEl.offsetHeight;
+    treeWidth = w;
+    if (namesEl.offsetHeight <= singleLineHeight * 1.3) break;
+  }
+
+  const finalHeight = Math.min(measureTrueContentHeight(), MAX_TREE_HEIGHT);
+  leftTree.style.width = treeWidth + 'px';
+  rightTree.style.width = treeWidth + 'px';
+  leftTree.style.height = finalHeight + 'px';
+  rightTree.style.height = finalHeight + 'px';
 }
 window.addEventListener('resize', () => {
   if (document.getElementById('view-dashboard') && document.getElementById('view-dashboard').classList.contains('active')) {
