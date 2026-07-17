@@ -260,24 +260,20 @@ select.form-input{appearance:none;-webkit-appearance:none;}
   <div class="views" id="views">
     <!-- DASHBOARD -->
     <div class="view active" id="view-dashboard">
-      <div class="page-header" style="position:relative;min-height:70px;">
-        <div style="flex:1;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <svg width="16" height="22" viewBox="0 0 16 22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink:0;">
-              <polygon points="8,1 2,8 14,8" fill="#1a2e1b"/>
-              <polygon points="8,6 1,14 15,14" fill="#1a2e1b"/>
-              <polygon points="8,11 0,20 16,20" fill="#1a2e1b"/>
-              <rect x="7" y="20" width="2" height="2" fill="#1a2e1b"/>
-            </svg>
-            <div class="page-title">Base Camp</div>
-          </div>
-          <div style="font-size:13px;font-weight:500;color:var(--muted);margin-top:1px;" id="home-names">Chris + Maddie</div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
-            <div style="font-size:11px;color:var(--muted);" id="db-period-label">Loading...</div>
-            <div id="db-days-left" style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--light);color:var(--muted);display:none;"></div>
-          </div>
-          <div id="sync-indicator" style="font-size:11px;font-weight:600;margin-top:2px;min-height:14px;"></div>
+      <div class="page-header" style="position:relative;min-height:70px;display:block;text-align:center;">
+        <svg width="18" height="24" viewBox="0 0 16 22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;margin:0 auto 6px;">
+          <polygon points="8,1 2,8 14,8" fill="#1a2e1b"/>
+          <polygon points="8,6 1,14 15,14" fill="#1a2e1b"/>
+          <polygon points="8,11 0,20 16,20" fill="#1a2e1b"/>
+          <rect x="7" y="20" width="2" height="2" fill="#1a2e1b"/>
+        </svg>
+        <div class="page-title">Base Camp</div>
+        <div style="font-size:13px;font-weight:500;color:var(--muted);margin-top:1px;" id="home-names">Chris + Maddie</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;">
+          <div style="font-size:11px;color:var(--muted);" id="db-period-label">Loading...</div>
+          <div id="db-days-left" style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--light);color:var(--muted);display:none;"></div>
         </div>
+        <div id="sync-indicator" style="font-size:11px;font-weight:600;margin-top:2px;min-height:14px;"></div>
       </div>
 
       <div class="db-two-col" id="db-two-col">
@@ -5228,9 +5224,8 @@ function updateAssigneeName(i, val) {
   if (!data.assignees) data.assignees = ['Chris', 'Maddie'];
   data.assignees[i] = val.trim();
   save(data);
-  // Update home page header
-  const headerEl = document.querySelector('.page-title');
-  // Will re-render on next dashboard render
+  const namesEl = document.getElementById('home-names');
+  if (namesEl) namesEl.textContent = data.assignees.join(' + ');
 }
 
 function renderAssigneeSettings() {
@@ -5245,6 +5240,8 @@ function addAssignee() {
   data.assignees.push(name.trim());
   save(data);
   renderSettings();
+  const namesEl = document.getElementById('home-names');
+  if (namesEl) namesEl.textContent = data.assignees.join(' + ');
 }
 
 function removeAssignee(i) {
@@ -5253,6 +5250,8 @@ function removeAssignee(i) {
   data.assignees.splice(i, 1);
   save(data);
   renderSettings();
+  const namesEl = document.getElementById('home-names');
+  if (namesEl) namesEl.textContent = data.assignees.join(' + ');
 }
 
 function populateAssigneeDropdown(selectedVal) {
