@@ -260,20 +260,28 @@ select.form-input{appearance:none;-webkit-appearance:none;}
   <div class="views" id="views">
     <!-- DASHBOARD -->
     <div class="view active" id="view-dashboard">
-      <div class="page-header" style="position:relative;min-height:70px;display:block;text-align:center;">
-        <svg width="18" height="24" viewBox="0 0 16 22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;margin:0 auto 6px;">
+      <div class="page-header" style="position:relative;min-height:70px;display:flex;align-items:stretch;justify-content:center;gap:10px;">
+        <svg id="home-tree-left" width="18" viewBox="0 0 16 22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink:0;align-self:center;">
           <polygon points="8,1 2,8 14,8" fill="#1a2e1b"/>
           <polygon points="8,6 1,14 15,14" fill="#1a2e1b"/>
           <polygon points="8,11 0,20 16,20" fill="#1a2e1b"/>
           <rect x="7" y="20" width="2" height="2" fill="#1a2e1b"/>
         </svg>
-        <div class="page-title">Base Camp</div>
-        <div style="font-size:13px;font-weight:500;color:var(--muted);margin-top:1px;" id="home-names">Chris + Maddie</div>
-        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;">
-          <div style="font-size:11px;color:var(--muted);" id="db-period-label">Loading...</div>
-          <div id="db-days-left" style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--light);color:var(--muted);display:none;"></div>
+        <div id="home-header-text" style="text-align:center;min-width:0;">
+          <div class="page-title">Base Camp</div>
+          <div style="font-size:13px;font-weight:500;color:var(--muted);margin-top:1px;" id="home-names">Chris + Maddie</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;">
+            <div style="font-size:11px;color:var(--muted);" id="db-period-label">Loading...</div>
+            <div id="db-days-left" style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--light);color:var(--muted);display:none;"></div>
+          </div>
+          <div id="sync-indicator" style="font-size:11px;font-weight:600;margin-top:2px;min-height:14px;"></div>
         </div>
-        <div id="sync-indicator" style="font-size:11px;font-weight:600;margin-top:2px;min-height:14px;"></div>
+        <svg id="home-tree-right" width="18" viewBox="0 0 16 22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink:0;align-self:center;">
+          <polygon points="8,1 2,8 14,8" fill="#1a2e1b"/>
+          <polygon points="8,6 1,14 15,14" fill="#1a2e1b"/>
+          <polygon points="8,11 0,20 16,20" fill="#1a2e1b"/>
+          <rect x="7" y="20" width="2" height="2" fill="#1a2e1b"/>
+        </svg>
       </div>
 
       <div class="db-two-col" id="db-two-col">
@@ -2277,7 +2285,25 @@ function renderDashboard() {
   } else {
     recentEl.innerHTML = allTxns.map(t => txnRow(t, data)).join('');
   }
+  syncHomeHeaderTreeHeight();
 }
+
+function syncHomeHeaderTreeHeight() {
+  const textEl = document.getElementById('home-header-text');
+  const leftTree = document.getElementById('home-tree-left');
+  const rightTree = document.getElementById('home-tree-right');
+  if (!textEl || !leftTree || !rightTree) return;
+  const h = textEl.offsetHeight;
+  if (h > 0) {
+    leftTree.style.height = h + 'px';
+    rightTree.style.height = h + 'px';
+  }
+}
+window.addEventListener('resize', () => {
+  if (document.getElementById('view-dashboard') && document.getElementById('view-dashboard').classList.contains('active')) {
+    syncHomeHeaderTreeHeight();
+  }
+});
 
 function txnRow(t, data, showEdit = true) {
   const cats = getCats();
