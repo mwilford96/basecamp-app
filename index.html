@@ -54,11 +54,11 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;}
 .nav-btn i{font-size:20px;}
 
 /* Header */
-.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;overflow:hidden;}
 .page-title{font-family:'DM Serif Display',serif;font-size:22px;line-height:1.1;}
-.page-sub{font-size:12px;color:var(--muted);margin-top:2px;}
-.page-title-block{border-left:2.5px solid #1a2e1b;padding-left:9px;}
-.page-eyebrow{font-size:9px;font-weight:700;color:#5a7a4e;text-transform:uppercase;letter-spacing:.13em;margin-bottom:2px;font-family:'DM Sans',sans-serif;}
+.page-sub{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.page-title-block{border-left:2.5px solid #1a2e1b;padding-left:9px;max-width:calc(100% - 60px);flex-shrink:1;}
+.page-eyebrow{font-size:9px;font-weight:700;color:#5a7a4e;text-transform:uppercase;letter-spacing:.13em;margin-bottom:2px;font-family:'DM Sans',sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .page-header-wm{position:absolute;right:0;top:0;opacity:.09;pointer-events:none;}
 
 /* Cards */
@@ -739,6 +739,24 @@ select.form-input{appearance:none;-webkit-appearance:none;}
   </div>
 
   <!-- PLAN THIS MODAL (day picker) -->
+  <!-- END OR DELETE FIXED EXPENSE MODAL -->
+  <div class="modal-overlay" id="modal-end-fixed" onclick="closeEndFixedModalOutside(event)">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="ef-title" style="margin-bottom:4px;"></div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:16px;">Ending keeps your past charges in history. Deleting removes this subscription everywhere, including history &mdash; use it only to remove an incorrect entry.</div>
+      <button onclick="confirmEndFixed()" style="width:100%;text-align:left;background:#EFF5ED;border:1px solid #2D5F2D;border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-size:14px;font-weight:700;color:#1E3A2A;">End subscription</div>
+        <div style="font-size:11px;color:#3B6D11;margin-top:1px;">Keeps history &middot; stops future charges</div>
+      </button>
+      <button onclick="confirmDeleteFixedPermanent()" style="width:100%;text-align:left;background:#FAECE7;border:1px solid #D85A30;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:700;color:#4A1B0C;">Delete permanently</div>
+        <div style="font-size:11px;color:#993C1D;margin-top:1px;">Removes history too &middot; cannot be undone</div>
+      </button>
+      <button onclick="closeEndFixedModal()" style="width:100%;text-align:center;background:none;border:none;color:var(--muted);font-size:13px;padding:6px;">Cancel</button>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modal-plan-this" onclick="closePlanThisModalOutside(event)">
     <div class="modal">
       <div class="modal-handle"></div>
@@ -1742,7 +1760,8 @@ function openEditFixed(id) {
   document.getElementById('fixed-date').value = f.startDate || f.renewalDate || '';
   document.getElementById('fixed-end-date').value = f.endDate || '';
   populateFixedCatDropdown(f.cat || 'fix');
-  document.getElementById('fixed-renewal-preview').textContent = f.renewalDate ? 'Next renewal: ' + f.renewalDate : '';
+  const livePreview = f.endDate && f.endDate <= localDateStr() ? '' : nextRenewalDate(f.startDate || f.renewalDate, f.freq);
+  document.getElementById('fixed-renewal-preview').textContent = livePreview ? 'Next renewal: ' + fmtDate(livePreview) : '';
   document.getElementById('delete-fixed-btn').style.display = 'block';
   openModal('modal-fixed');
 }
@@ -1852,38 +1871,49 @@ function deleteFixed() {
   const id = document.getElementById('edit-fixed-id').value;
   const fe = data.fixedExpenses.find(x => x.id === id);
   if (!fe) return;
+  document.getElementById('ef-title').textContent = 'End or delete "' + fe.name + '"?';
+  document.getElementById('modal-end-fixed').dataset.feId = id;
+  openModal('modal-end-fixed');
+}
 
-  // Offer choice: end subscription or permanently delete
-  const choice = confirm(
-    'End "' + fe.name + '"?\n\n' +
-    'OK = Mark as ended (keeps history)\n' +
-    'Cancel = Keep subscription active'
-  );
-  if (!choice) return;
-
-  const permanentDelete = confirm(
-    'Delete all history for "' + fe.name + '" permanently?\n\n' +
-    'OK = Delete permanently (cannot be undone)\n' +
-    'Cancel = Just mark as ended (recommended)'
-  );
-
+function confirmEndFixed() {
+  const modal = document.getElementById('modal-end-fixed');
+  const id = modal.dataset.feId;
+  const data = db();
+  const fe = data.fixedExpenses.find(x => x.id === id);
+  if (!fe) { closeEndFixedModal(); return; }
   const prev = JSON.parse(JSON.stringify(data));
-
-  if (permanentDelete) {
-    data.fixedExpenses = data.fixedExpenses.filter(x => x.id !== id);
-    data.scheduledCharges = (data.scheduledCharges || []).filter(c => c.fixedExpenseId !== id);
-    save(data);
-    closeModal('modal-fixed');
-    showUndo('Subscription permanently deleted', prev);
-  } else {
-    // Mark as ended today — moves to Ended section, history preserved
-    const idx = data.fixedExpenses.findIndex(x => x.id === id);
-    if (idx !== -1) data.fixedExpenses[idx].endDate = localDateStr();
-    save(data);
-    closeModal('modal-fixed');
-    toast('"' + fe.name + '" marked as ended');
-  }
+  const idx = data.fixedExpenses.findIndex(x => x.id === id);
+  if (idx !== -1) data.fixedExpenses[idx].endDate = localDateStr();
+  save(data);
+  closeEndFixedModal();
+  closeModal('modal-fixed');
+  toast('"' + fe.name + '" marked as ended');
   refreshCurrentView();
+}
+
+function confirmDeleteFixedPermanent() {
+  const modal = document.getElementById('modal-end-fixed');
+  const id = modal.dataset.feId;
+  const data = db();
+  const fe = data.fixedExpenses.find(x => x.id === id);
+  if (!fe) { closeEndFixedModal(); return; }
+  const prev = JSON.parse(JSON.stringify(data));
+  data.fixedExpenses = data.fixedExpenses.filter(x => x.id !== id);
+  data.scheduledCharges = (data.scheduledCharges || []).filter(c => c.fixedExpenseId !== id);
+  save(data);
+  closeEndFixedModal();
+  closeModal('modal-fixed');
+  showUndo('Subscription permanently deleted', prev);
+  refreshCurrentView();
+}
+
+function closeEndFixedModal() {
+  closeModal('modal-end-fixed');
+}
+
+function closeEndFixedModalOutside(e) {
+  if (e.target === document.getElementById('modal-end-fixed')) closeEndFixedModal();
 }
 
 // ─── TOGGLE PAID STATUS ──────────────────────────────────────────
@@ -2631,7 +2661,7 @@ function renderScheduledPayments(contentEl) {
           </div>
           <div class="fixed-info">
             <div class="fixed-name">${f.name}</div>
-            <div class="fixed-freq">Next: ${fmtDate(f.renewalDate||'')}</div>
+            <div class="fixed-freq">Next: ${f.endDate && f.endDate <= today ? 'Ended' : fmtDate(nextRenewalDate(f.startDate || f.renewalDate, f.freq))}</div>
           </div>
           <div style="text-align:right;">
             <div class="fixed-amount" style="color:${cat.dark};">${fmt(f.amount)}</div>
@@ -3031,7 +3061,7 @@ function renderGroceryTabContent() {
       html += `<div style="font-size:12px;color:var(--muted);padding:4px 0;">Tap + Add to track things like HelloFresh, vitamin deliveries, etc.</div>`;
     } else {
       foodFixed.forEach(f => {
-        const renewDisplay = fmtDate(f.renewalDate || f.startDate || '');
+        const renewDisplay = f.endDate && f.endDate <= today3 ? 'Ended' : fmtDate(nextRenewalDate(f.startDate || f.renewalDate, f.freq) || '');
         html += `<div class="txn-row" onclick="openEditFixed('${f.id}')" style="cursor:pointer;"><div class="txn-dot" style="background:var(--fix-l);"><i class="ti ti-repeat" style="color:var(--fix);font-size:13px;"></i></div><div class="txn-info"><div class="txn-name">${f.name}</div><div class="txn-meta">Next: ${renewDisplay} · ${f.freq}</div></div><div class="txn-right"><div class="txn-amount" style="color:var(--fix-d);">${fmt(f.amount)}</div></div></div>`;
       });
     }
