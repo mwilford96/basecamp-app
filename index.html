@@ -57,7 +57,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;}
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;overflow:hidden;}
 .page-title{font-family:'DM Serif Display',serif;font-size:22px;line-height:1.1;}
 .page-sub{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.page-title-block{border-left:2.5px solid #1a2e1b;padding-left:9px;max-width:calc(100% - 60px);flex-shrink:1;}
+.page-title-block{border-left:2.5px solid #1a2e1b;padding-left:9px;max-width:calc(100% - 74px);flex-shrink:1;}
 .page-eyebrow{font-size:9px;font-weight:700;color:#5a7a4e;text-transform:uppercase;letter-spacing:.13em;margin-bottom:2px;font-family:'DM Sans',sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .page-header-wm{position:absolute;right:0;top:0;opacity:.09;pointer-events:none;}
 
@@ -369,7 +369,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     <!-- BUDGET -->
     <div class="view" id="view-budget">
       <div class="page-header" style="position:relative;min-height:60px;">
-        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 88,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <svg class="page-header-wm" width="104" height="60" viewBox="0 0 104 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
         <div class="page-title-block">
           <div class="page-eyebrow">Field Ledger</div>
           <div class="page-title">Budget</div>
@@ -392,7 +392,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     <!-- GROCERIES -->
     <div class="view" id="view-groceries">
       <div class="page-header" style="position:relative;min-height:60px;">
-        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 88,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <svg class="page-header-wm" width="104" height="60" viewBox="0 0 104 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
         <div class="page-title-block">
           <div class="page-eyebrow">Mess Hall</div>
           <div class="page-title">Grocery Plan</div>
@@ -414,7 +414,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     <!-- TO-DO -->
     <div class="view" id="view-todo">
       <div class="page-header" style="position:relative;min-height:60px;">
-        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 88,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <svg class="page-header-wm" width="104" height="60" viewBox="0 0 104 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
         <div class="page-title-block">
           <div class="page-eyebrow">Camp Duties</div>
           <div class="page-title">To-Do List</div>
@@ -446,7 +446,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     <!-- HISTORY -->
     <div class="view" id="view-history">
       <div class="page-header" style="position:relative;min-height:60px;">
-        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 88,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <svg class="page-header-wm" width="104" height="60" viewBox="0 0 104 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
         <div class="page-title-block">
           <div class="page-eyebrow">Trail Log</div>
           <div class="page-title">History</div>
@@ -458,7 +458,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     <!-- SETTINGS -->
     <div class="view" id="view-settings">
       <div class="page-header" style="position:relative;min-height:60px;">
-        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 88,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <svg class="page-header-wm" width="104" height="60" viewBox="0 0 104 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
         <div class="page-title-block">
           <div class="page-eyebrow">Camp HQ</div>
           <div class="page-title">Settings</div>
@@ -2592,7 +2592,9 @@ function renderScheduledPayments(contentEl) {
           const futureCharges = (data.scheduledCharges || [])
             .filter(sc => sc.fixedExpenseId === f.id && sc.chargeDate > today)
             .sort((a, b) => a.chargeDate.localeCompare(b.chargeDate));
-          const nextChargeDate = futureCharges.length > 0 ? futureCharges[0].chargeDate : (f.renewalDate || '');
+          const nextChargeDate = futureCharges.length > 0
+            ? futureCharges[0].chargeDate
+            : (f.endDate && f.endDate <= today ? '' : nextRenewalDate(f.startDate || f.renewalDate, f.freq));
           return `
           <div class="fixed-row" onclick="openEditFixed('${f.id}')" style="cursor:pointer;">
             <div class="txn-dot" style="background:${cat.light};">
