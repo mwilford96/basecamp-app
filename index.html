@@ -369,7 +369,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     <!-- BUDGET -->
     <div class="view" id="view-budget">
       <div class="page-header" style="position:relative;min-height:60px;">
-        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 88,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
         <div class="page-title-block">
           <div class="page-eyebrow">Field Ledger</div>
           <div class="page-title">Budget</div>
@@ -392,7 +392,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     <!-- GROCERIES -->
     <div class="view" id="view-groceries">
       <div class="page-header" style="position:relative;min-height:60px;">
-        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 88,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
         <div class="page-title-block">
           <div class="page-eyebrow">Mess Hall</div>
           <div class="page-title">Grocery Plan</div>
@@ -414,7 +414,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     <!-- TO-DO -->
     <div class="view" id="view-todo">
       <div class="page-header" style="position:relative;min-height:60px;">
-        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 88,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
         <div class="page-title-block">
           <div class="page-eyebrow">Camp Duties</div>
           <div class="page-title">To-Do List</div>
@@ -446,7 +446,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     <!-- HISTORY -->
     <div class="view" id="view-history">
       <div class="page-header" style="position:relative;min-height:60px;">
-        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 88,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
         <div class="page-title-block">
           <div class="page-eyebrow">Trail Log</div>
           <div class="page-title">History</div>
@@ -458,7 +458,7 @@ select.form-input{appearance:none;-webkit-appearance:none;}
     <!-- SETTINGS -->
     <div class="view" id="view-settings">
       <div class="page-header" style="position:relative;min-height:60px;">
-        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 100,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
+        <svg class="page-header-wm" width="90" height="60" viewBox="0 0 90 60" aria-hidden="true"><polygon points="68,2 36,54 88,54" fill="#1a2e1b"/><polygon points="26,14 4,54 50,54" fill="#1a2e1b" opacity=".5"/></svg>
         <div class="page-title-block">
           <div class="page-eyebrow">Camp HQ</div>
           <div class="page-title">Settings</div>
@@ -2304,7 +2304,7 @@ function txnRow(t, data, showEdit = true) {
 
   // Upcoming: dimmed, "in X days", no paid toggle
   if (t.upcoming) {
-    const renewDate = t.renewalDate || t.startDate || '';
+    const renewDate = t.chargeDate || t.renewalDate || t.startDate || '';
     const daysUntil = renewDate ? Math.round((new Date(renewDate+'T12:00:00') - new Date()) / 86400000) : null;
     const daysLabel = daysUntil !== null ? (daysUntil === 0 ? 'today' : daysUntil === 1 ? 'tomorrow' : 'in ' + daysUntil + ' days') : '';
     return `
