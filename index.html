@@ -4708,6 +4708,7 @@ function importData(event) {
       if (!confirm('This will replace all current data with the backup. Continue?')) return;
       // Write locally only — do NOT auto-push to cloud (avoids overwriting good cloud data with a bad import)
       const migrated = migrateData(parsed);
+      migrated.lastSaved = Date.now(); // stamp fresh so init's cloud-vs-local check doesn't overwrite this with stale cloud data on reload
       setDB(migrated);
       if (confirm('Import successful! Push this data to cloud sync as well?')) {
         cloudSave(migrated);
